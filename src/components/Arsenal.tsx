@@ -54,8 +54,10 @@ export default function Arsenal() {
             style={{ ["--game" as string]: g.hex }}
             className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 transition-all hover:border-white/15 hover:bg-white/[0.04]"
           >
-            <div className="absolute inset-0 -z-10 opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-[radial-gradient(60%_80%_at_0%_50%,var(--game),transparent_70%)] [&]:[background-color:transparent] [mix-blend-mode:soft-light]" />
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-white/85 ring-1 ring-inset ring-white/10 transition-all duration-500 group-hover:scale-105 group-hover:text-[var(--game)] group-hover:ring-[var(--game)]/40">
+            <div className="absolute inset-0 -z-10 bg-[radial-gradient(60%_80%_at_0%_50%,var(--game),transparent_70%)] opacity-[0.18] mix-blend-soft-light md:opacity-0 md:transition-opacity md:duration-500 md:group-hover:opacity-100" />
+            <span
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-[var(--game)] ring-1 ring-inset ring-[var(--game)]/35 transition-all duration-500 max-md:scale-105 md:text-white/85 md:ring-white/10 md:group-hover:scale-105 md:group-hover:text-[var(--game)] md:group-hover:ring-[var(--game)]/40"
+            >
               <BrandIcon path={g.path} title={g.name} className="h-6 w-6" />
             </span>
             <div className="min-w-0">

@@ -57,7 +57,7 @@ export default function NtgStandard() {
                 }}
                 className="group flex items-baseline gap-5 border-b border-white/[0.06] pb-6 last:border-b-0 last:pb-0 sm:gap-7"
               >
-                <span className="text-outline w-[2.5ch] shrink-0 font-display text-7xl font-black leading-none tracking-[-0.05em] transition-colors duration-500 group-hover:[-webkit-text-stroke:1px_var(--color-brand)] sm:text-8xl">
+                <span className="text-outline w-[2.5ch] shrink-0 font-display text-7xl font-black leading-none tracking-[-0.05em] max-md:[-webkit-text-stroke:1px_var(--color-brand)] max-md:drop-shadow-[0_0_14px_rgba(94,234,212,0.4)] md:transition-colors md:duration-500 md:group-hover:[-webkit-text-stroke:1px_var(--color-brand)] sm:text-8xl">
                   {l.letter}
                 </span>
                 <div className="min-w-0">

@@ -58,7 +58,7 @@ export default function TournamentVault() {
             style={{ ["--cup" as string]: t.hex }}
             className="group relative flex items-stretch gap-5"
           >
-            {/* timeline marker */}
+            {/* timeline marker — desktop hover reveal */}
             <div className="relative z-10 hidden shrink-0 items-start pt-6 md:flex">
               <span className="relative flex h-[3.75rem] w-[3.75rem] items-center justify-center rounded-2xl bg-[#0a1020] ring-1 ring-white/10 transition-all duration-500 group-hover:ring-[var(--cup)]/55">
                 <span className="absolute inset-0 rounded-2xl bg-[var(--cup)] opacity-0 blur-xl transition-opacity duration-500 group-hover:opacity-25" />
@@ -72,7 +72,18 @@ export default function TournamentVault() {
             <div className="flex-1 overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] transition-colors hover:border-white/15 hover:bg-white/[0.04]">
               <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7 sm:py-6">
                 <div className="flex items-center gap-4">
-                  <span className="font-display text-2xl font-black tabular-nums text-white/15 sm:text-3xl">
+                  {/* Mobile: game logo (no hover on touch) */}
+                  <span
+                    className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#0a1020] md:hidden"
+                    style={{
+                      color: t.hex,
+                      boxShadow: `inset 0 0 0 1px ${t.hex}55`,
+                    }}
+                  >
+                    <BrandIcon path={t.iconPath} title={t.name} className="h-5 w-5" />
+                  </span>
+                  {/* Desktop: faded index in card */}
+                  <span className="hidden font-display text-2xl font-black tabular-nums text-white/15 sm:text-3xl md:inline">
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <div>

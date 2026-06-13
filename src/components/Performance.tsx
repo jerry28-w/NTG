@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { AnimatePresence, motion, useInView } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 
 const championshipSlides = [
   "/arena/arena-tournament.png",
@@ -45,6 +45,8 @@ function ImageCard({
           alt={title}
           fill
           sizes="(max-width: 768px) 100vw, 40vw"
+          quality={75}
+          loading="lazy"
           className="object-cover transition-transform duration-[1100ms] ease-out group-hover:scale-[1.05]"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#070b14] via-[#070b14]/45 to-transparent" />
@@ -83,16 +85,27 @@ function ChampionshipCard({
   imgClassName = "min-h-[360px] md:min-h-full md:aspect-auto",
 }: ChampionshipCardProps) {
   const [index, setIndex] = useState(0);
+  const ref = useRef<HTMLElement>(null);
+  const inView = useInView(ref, { margin: "-80px", once: false });
 
   useEffect(() => {
+    championshipSlides.slice(1).forEach((src) => {
+      const img = new window.Image();
+      img.src = src;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!inView) return;
     const timer = setInterval(() => {
       setIndex((current) => (current + 1) % championshipSlides.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [inView]);
 
   return (
     <motion.article
+      ref={ref}
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
@@ -114,7 +127,9 @@ function ChampionshipCard({
               alt={`${title} — slide ${index + 1}`}
               fill
               sizes="(max-width: 768px) 100vw, 55vw"
+              quality={75}
               priority={index === 0}
+              loading={index === 0 ? "eager" : "lazy"}
               className="object-cover"
             />
           </motion.div>
@@ -185,8 +200,8 @@ function QuoteCard({ className = "", delay = 0 }: { className?: string; delay?: 
 
         <p className="mt-3 font-display text-base leading-snug tracking-[-0.005em] text-white/90 sm:text-lg">
           &ldquo;NTG is where my{" "}
-          <span className="text-gradient-brand">best plays</span> live. The gear,
-          the lights, the crowd — everything hits different.&rdquo;
+          <span className="text-gradient-brand">best plays</span>
+          {" "}live. The gear, the lights, the crowd — everything hits different.&rdquo;
         </p>
       </div>
 
