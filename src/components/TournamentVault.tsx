@@ -135,6 +135,9 @@ export default function TournamentVault() {
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3">
                   <span className="rounded-full bg-white/[0.05] px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/55 ring-1 ring-inset ring-white/10">
+                    {t.platform}
+                  </span>
+                  <span className="rounded-full bg-white/[0.05] px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/55 ring-1 ring-inset ring-white/10">
                     {t.date}
                   </span>
                   {t.status === "Soon" ? (

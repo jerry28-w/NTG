@@ -56,6 +56,7 @@ export type Tournament = {
   season: string;
   date: string;
   status: "Hosted" | "Soon";
+  platform: "PC" | "PS5";
   iconPath: string;
   hex: string;
 };
@@ -67,7 +68,7 @@ export const tournamentRegistration = {
   title: "FC26 CUP I",
   detail: "2v2 · 20 June 2026",
   /** Main headline — use the public-facing cup name here. */
-  message: "Registrations are live for FIFA CUP 1.",
+  message: "Registrations are live for FC26 CUP I.",
   href: "https://docs.google.com/forms/d/e/1FAIpQLScLO1HKslTILHz14WGZFogqr6YzMvAfncXGavYPeqqQ6HvZew/viewform",
   /** Last calendar day the banner may show (YYYY-MM-DD). Hidden from the next day onward. */
   hideAfter: "2026-06-20",
@@ -94,6 +95,7 @@ export const tournaments: Tournament[] = [
     season: "Season 01",
     date: "March 2026",
     status: "Hosted",
+    platform: "PC",
     iconPath: siValorant.path,
     hex: `#${siValorant.hex}`,
   },
@@ -104,6 +106,7 @@ export const tournaments: Tournament[] = [
     season: "Season 01",
     date: "March 2026",
     status: "Hosted",
+    platform: "PC",
     iconPath: siCounterstrike.path,
     hex: `#${siCounterstrike.hex}`,
   },
@@ -114,6 +117,7 @@ export const tournaments: Tournament[] = [
     season: "Season 02",
     date: "April 2026",
     status: "Hosted",
+    platform: "PC",
     iconPath: siValorant.path,
     hex: `#${siValorant.hex}`,
   },
@@ -124,6 +128,7 @@ export const tournaments: Tournament[] = [
     season: "Edition 01",
     date: "April 2026",
     status: "Hosted",
+    platform: "PC",
     iconPath: siValorant.path,
     hex: `#${siValorant.hex}`,
   },
@@ -134,6 +139,7 @@ export const tournaments: Tournament[] = [
     season: "Edition 02",
     date: "June 2026",
     status: "Hosted",
+    platform: "PC",
     iconPath: siValorant.path,
     hex: `#${siValorant.hex}`,
   },
@@ -141,9 +147,10 @@ export const tournaments: Tournament[] = [
     id: "fc26-cup-1",
     name: "FC26 CUP I",
     game: "EA FC 26 · 2v2",
-    season: "Season 03",
+    season: "Season 01",
     date: "June 2026",
     status: "Soon",
+    platform: "PS5",
     iconPath: siEa.path,
     hex: `#${siEa.hex}`,
   },
@@ -151,9 +158,10 @@ export const tournaments: Tournament[] = [
     id: "auc-cup-3",
     name: "AUC CUP III",
     game: "Counter-Strike 2 · Auction Draft",
-    season: "Season 03",
+    season: "Edition 03",
     date: "June 2026",
     status: "Soon",
+    platform: "PC",
     iconPath: siCounterstrike.path,
     hex: `#${siCounterstrike.hex}`,
   },
@@ -169,7 +177,7 @@ export const specs = [
   { label: "Processor", value: "Ryzen 5 7600X" },
   { label: "Graphics", value: "RTX 5060" },
   { label: "Display", value: "300Hz" },
-  { label: "Peripherals", value: "Gigabyte" },
+  { label: "Peripherals", value: "Logitech & HyperX" },
 ];
 
 export const services = ["PC", "PS5", "Screening", "Birthdays", "Esports"];
