@@ -3,6 +3,7 @@ import { logAdminAction } from "@/lib/admin-audit";
 import { serverEnv } from "@core/config/env.server";
 import {
   getLeaderboardSyncStats,
+  RANK_SYNC_ADMIN_BATCH_SIZE,
   syncAllLinkedPlayers,
   type SyncRunTotals,
 } from "@tournaments-leagues/index";
@@ -33,11 +34,16 @@ export async function GET() {
   const auth = await requireAdmin();
   if (!isAuthedAdmin(auth)) return guardResponse(auth)!;
 
-  const stats = await getLeaderboardSyncStats();
-  return NextResponse.json({ stats });
+  try {
+    const stats = await getLeaderboardSyncStats();
+    return NextResponse.json({ stats });
+  } catch (err) {
+    console.error("[admin/leaderboard/sync GET]", err);
+    return NextResponse.json({ error: "Could not load sync stats." }, { status: 500 });
+  }
 }
 
-/** Run one batch of the full leaderboard sync (26 players). Client loops until complete. */
+/** Run one batch of the full leaderboard sync. Client loops until complete. */
 export async function POST(req: Request) {
   if (!serverEnv.databaseUrl) {
     return NextResponse.json({ error: "Database not configured" }, { status: 503 });
@@ -61,34 +67,49 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid runStartedAt." }, { status: 400 });
   }
 
-  const batch = await syncAllLinkedPlayers({
-    fullRefreshBefore: runStartedAt,
-    tryAllRegions: true,
-  });
-
-  const totals = accumulateTotals(body.totals, {
-    synced: batch.synced,
-    failed: batch.failed,
-    skipped: batch.skipped,
-    batches: 1,
-  });
-
-  const complete = !batch.hasMore;
-  const stats = await getLeaderboardSyncStats();
-
-  if (complete) {
-    await logAdminAction(auth.userId, "leaderboard.sync", undefined, {
-      runStartedAt: runStartedAt.toISOString(),
-      ...totals,
+  try {
+    const batch = await syncAllLinkedPlayers({
+      fullRefreshBefore: runStartedAt,
+      tryAllRegions: true,
+      maxBatchSize: RANK_SYNC_ADMIN_BATCH_SIZE,
     });
-  }
 
-  return NextResponse.json({
-    ok: true,
-    runStartedAt: runStartedAt.toISOString(),
-    batch,
-    totals,
-    complete,
-    stats,
-  });
+    const totals = accumulateTotals(body.totals, {
+      synced: batch.synced,
+      failed: batch.failed,
+      skipped: batch.skipped,
+      batches: 1,
+    });
+
+    const complete = !batch.hasMore;
+    const stats = await getLeaderboardSyncStats();
+
+    if (complete) {
+      await logAdminAction(auth.userId, "leaderboard.sync", undefined, {
+        runStartedAt: runStartedAt.toISOString(),
+        ...totals,
+      });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      runStartedAt: runStartedAt.toISOString(),
+      batch,
+      totals,
+      complete,
+      stats,
+    });
+  } catch (err) {
+    console.error("[admin/leaderboard/sync POST]", err);
+    const message = err instanceof Error ? err.message : "Sync batch failed.";
+    return NextResponse.json(
+      {
+        error:
+          message.includes("timeout") || message.includes("Timeout")
+            ? "Sync batch timed out. Try again — progress is saved between batches."
+            : "Sync batch failed. Try again in a moment.",
+      },
+      { status: 500 },
+    );
+  }
 }

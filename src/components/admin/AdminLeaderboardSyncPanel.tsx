@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { parseApiJson } from "@/lib/parse-api-json";
 
 type SyncStats = {
   linkedPlayers: number;
@@ -38,9 +39,13 @@ export default function AdminLeaderboardSyncPanel() {
 
   const loadStats = useCallback(async () => {
     const res = await fetch("/api/admin/leaderboard/sync");
+    const parsed = await parseApiJson(res);
+    if (!parsed.ok) {
+      setError(parsed.message);
+      return;
+    }
     if (!res.ok) return;
-    const data = await res.json();
-    setStats(data.stats);
+    setStats(parsed.data.stats as SyncStats);
   }, []);
 
   useEffect(() => {
@@ -67,18 +72,23 @@ export default function AdminLeaderboardSyncPanel() {
             totals: accumulated,
           }),
         });
-        const data = await res.json();
+        const parsed = await parseApiJson(res);
+        if (!parsed.ok) {
+          throw new Error(parsed.message);
+        }
+        const data = parsed.data;
         if (!res.ok) {
-          throw new Error(data.error ?? "Sync batch failed.");
+          throw new Error(String(data.error ?? "Sync batch failed."));
         }
 
-        startedAt = data.runStartedAt;
-        setRunStartedAt(data.runStartedAt);
-        accumulated = data.totals;
-        setTotals(data.totals);
-        setPending(data.batch.pending);
-        setStats(data.stats);
-        complete = data.complete;
+        startedAt = String(data.runStartedAt);
+        setRunStartedAt(startedAt);
+        accumulated = data.totals as SyncTotals;
+        setTotals(accumulated);
+        const batch = data.batch as { pending: number };
+        setPending(batch.pending);
+        setStats(data.stats as SyncStats);
+        complete = Boolean(data.complete);
 
         if (!complete) {
           await new Promise((r) => setTimeout(r, 400));

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ValorantRole } from "@prisma/client";
+import { parseApiJson } from "@/lib/parse-api-json";
 import {
   VALORANT_ROLE_LABELS,
   VALORANT_ROLE_OPTIONS,
@@ -61,9 +62,14 @@ export default function GameProfilesPanel({
     setError(null);
     try {
       const res = await fetch("/api/profile/sync-rank", { method: "POST" });
-      const data = await res.json();
+      const parsed = await parseApiJson(res);
+      if (!parsed.ok) {
+        setError(parsed.message);
+        return;
+      }
+      const data = parsed.data;
       if (!res.ok) {
-        setError(data.error ?? "Could not refresh rank.");
+        setError(String(data.error ?? "Could not refresh rank."));
         return;
       }
       await onRefresh();

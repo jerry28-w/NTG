@@ -14,7 +14,7 @@ import {
 import { after, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
-/** Up to 26 Henrik calls × ~2.1s ≈ 55s per batch; continuation via `after()`. */
+/** Up to 26 Henrik calls × ~2.1s ≈ 55s per batch; chain via follow-up HTTP calls. */
 export const maxDuration = 120;
 
 type RunTotals = {
@@ -43,25 +43,64 @@ function accumulate(totals: RunTotals, batch: SyncAllResult): RunTotals {
   };
 }
 
-async function continueDailyRankRefresh(
-  runStartedAt: Date,
-  initialTotals: RunTotals,
-): Promise<RunTotals> {
-  let totals = initialTotals;
-  let hasMore = true;
-
-  while (hasMore) {
-    const next = await syncAllLinkedPlayers({
-      fullRefreshBefore: runStartedAt,
-      maxBatchSize: RANK_SYNC_MAX_BATCH_SIZE,
-    });
-    totals = accumulate(totals, next);
-    hasMore = next.hasMore;
-  }
-
-  return totals;
+function cronSiteOrigin(): string {
+  const raw =
+    serverEnv.authUrl ??
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    "https://www.ntgesports.com";
+  return raw.replace(/\/$/, "");
 }
 
+function scheduleNextRankBatch(runStartedAt: Date, totals: RunTotals): void {
+  const secret = serverEnv.cronSecret;
+  if (!secret) return;
+
+  const params = new URLSearchParams({
+    runStartedAt: runStartedAt.toISOString(),
+    synced: String(totals.synced),
+    failed: String(totals.failed),
+    skipped: String(totals.skipped),
+    batchesDone: String(totals.batches),
+    pending: String(totals.pending),
+  });
+  const url = `${cronSiteOrigin()}/api/cron/sync-ranks?${params.toString()}`;
+
+  after(async () => {
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${secret}` },
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text.slice(0, 200) || `Continuation failed (${res.status})`);
+      }
+    } catch (err) {
+      await notifyLeaderboardSyncComplete({
+        runStartedAt,
+        finishedAt: new Date(),
+        synced: totals.synced,
+        failed: totals.failed,
+        skipped: totals.skipped,
+        batches: totals.batches,
+        pending: totals.pending,
+        status: "error",
+        errorMessage: err instanceof Error ? err.message : "Sync continuation failed.",
+      });
+    }
+  });
+}
+
+function readRunTotals(searchParams: URLSearchParams): RunTotals {
+  return {
+    synced: Number(searchParams.get("synced") ?? "0") || 0,
+    failed: Number(searchParams.get("failed") ?? "0") || 0,
+    skipped: Number(searchParams.get("skipped") ?? "0") || 0,
+    batches: Number(searchParams.get("batchesDone") ?? "0") || 0,
+    pending: Number(searchParams.get("pending") ?? "0") || 0,
+  };
+}
 async function sendSyncNotify(
   runStartedAt: Date,
   totals: RunTotals,
@@ -94,7 +133,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Database not configured." }, { status: 503 });
   }
 
-  const userId = new URL(req.url).searchParams.get("userId");
+  const { searchParams } = new URL(req.url);
+  const userId = searchParams.get("userId");
 
   if (userId) {
     try {
@@ -108,60 +148,64 @@ export async function GET(req: Request) {
     }
   }
 
-  const runStartedAt = new Date();
+  const runStartedAtRaw = searchParams.get("runStartedAt");
+  const runStartedAt = runStartedAtRaw ? new Date(runStartedAtRaw) : new Date();
+  if (Number.isNaN(runStartedAt.getTime())) {
+    return NextResponse.json({ error: "Invalid runStartedAt." }, { status: 400 });
+  }
+
+  const isContinuation = Boolean(runStartedAtRaw);
+  const priorTotals = isContinuation ? readRunTotals(searchParams) : emptyTotals();
 
   try {
     const result = await syncAllLinkedPlayers({
       fullRefreshBefore: runStartedAt,
       maxBatchSize: RANK_SYNC_MAX_BATCH_SIZE,
+      tryAllRegions: true,
     });
 
-    if (result.hasMore) {
-      const firstBatchTotals = accumulate(emptyTotals(), result);
+    const totals = accumulate(priorTotals, result);
 
-      after(async () => {
-        try {
-          const totals = await continueDailyRankRefresh(runStartedAt, firstBatchTotals);
-          await sendSyncNotify(runStartedAt, totals, "ok");
-        } catch (err) {
-          await sendSyncNotify(
-            runStartedAt,
-            firstBatchTotals,
-            "error",
-            err instanceof Error ? err.message : "Sync failed.",
-          );
-        }
-      });
+    if (result.hasMore) {
+      scheduleNextRankBatch(runStartedAt, totals);
 
       return NextResponse.json({
         ok: true,
-        mode: "daily-full-refresh",
+        mode: isContinuation ? "daily-full-refresh-continuation" : "daily-full-refresh",
         runStartedAt: runStartedAt.toISOString(),
+        batchesDone: totals.batches,
         notifyEnabled: isLeaderboardSyncNotifyEnabled(),
         notifyEmail: getLeaderboardSyncNotifyEmail(),
         notifySent: false,
-        notifyReason: "continuing_in_background",
+        notifyReason: "continuing_via_http",
         ...result,
       });
     }
 
-    const totals = accumulate(emptyTotals(), result);
     const notify = await notifyLeaderboardSyncComplete({
       runStartedAt,
       finishedAt: new Date(),
-      ...totals,
+      synced: totals.synced,
+      failed: totals.failed,
+      skipped: totals.skipped,
+      batches: totals.batches,
+      pending: 0,
       status: "ok",
     });
 
     return NextResponse.json({
       ok: true,
-      mode: "daily-full-refresh",
+      mode: isContinuation ? "daily-full-refresh-continuation" : "daily-full-refresh",
       runStartedAt: runStartedAt.toISOString(),
+      batchesDone: totals.batches,
+      complete: true,
       notifyEnabled: isLeaderboardSyncNotifyEnabled(),
       notifyEmail: getLeaderboardSyncNotifyEmail(),
       notifySent: notify.sent,
       notifyReason: notify.reason,
       ...result,
+      hasMore: false,
+      pending: 0,
     });
   } catch (err) {
     await sendSyncNotify(

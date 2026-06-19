@@ -7,6 +7,8 @@ import { GameSlug, LeaderboardScope, Prisma } from "@prisma/client";
 const PLATFORM = "pc";
 /** Daily cron processes at most this many players per batch (~28 req/min with Henrik spacing). */
 export const RANK_SYNC_MAX_BATCH_SIZE = 26;
+/** Admin manual refresh with all-region lookup — smaller to stay under serverless timeout. */
+export const RANK_SYNC_ADMIN_BATCH_SIZE = 10;
 const SYNC_RETRY_ATTEMPTS = 3;
 const SYNC_RETRY_BASE_MS = 1_500;
 
@@ -158,6 +160,7 @@ export async function fetchCompetitiveMmr(
       if (puuid) {
         const byPuuid = await fetchV3MmrByPuuid(reg, puuid);
         if (byPuuid) return { snapshot: byPuuid, region: reg };
+        continue;
       }
 
       const byName = await fetchV3MmrByName(reg, gameName, tagLine);

@@ -14,6 +14,7 @@ export {
   runFullLeaderboardSync,
   getLeaderboardSyncStats,
   RANK_SYNC_MAX_BATCH_SIZE,
+  RANK_SYNC_ADMIN_BATCH_SIZE,
   type SyncAllResult,
   type SyncRunTotals,
   type LeaderboardSyncStats,
