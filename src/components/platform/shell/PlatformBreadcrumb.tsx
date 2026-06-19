@@ -11,7 +11,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   leaderboard: "Rankings",
   gallery: "Moments",
   profile: "Profile",
-  login: "Sign in",
+  login: "Login",
   signup: "Join",
   admin: "Admin",
 };

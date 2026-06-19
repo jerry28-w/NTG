@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 export const metadata = {
-  title: "Sign in",
+  title: "Login",
 };
 
 export default function LoginPage() {
@@ -27,7 +27,7 @@ export default function LoginPage() {
             Welcome back
           </p>
           <p className="mt-1 text-sm text-white/45">
-            Sign in to your NTG Lounge account
+            Log in to your NTG Lounge account
           </p>
         </div>
       </div>

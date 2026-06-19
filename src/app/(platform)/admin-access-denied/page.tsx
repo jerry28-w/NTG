@@ -21,7 +21,7 @@ export default async function AdminAccessDeniedPage() {
             or ask an existing admin to promote your role in Admin → Members.
           </>
         ) : (
-          <>Sign in with an admin email, then return to the control center.</>
+          <>Log in with an admin email, then return to the control center.</>
         )}
       </p>
       <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -29,7 +29,7 @@ export default async function AdminAccessDeniedPage() {
           href="/login?callbackUrl=/admin"
           className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/[0.08]"
         >
-          Sign in
+          Login
         </Link>
         <Link
           href="/esports"

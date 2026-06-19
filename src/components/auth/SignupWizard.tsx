@@ -1,6 +1,7 @@
 "use client";
 
 import DevOtpBanner from "./DevOtpBanner";
+import PasswordField from "./PasswordField";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -415,13 +416,13 @@ export default function SignupWizard() {
                   onChange={(e) => setOlympusId(e.target.value)}
                   className={inputClass}
                 />
-                <input
-                  type="password"
+                <PasswordField
                   required
                   minLength={8}
                   placeholder="Password (min 8 chars)"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={setPassword}
+                  autoComplete="new-password"
                   className={inputClass}
                 />
                 {error ? <p className="text-sm text-red-300">{error}</p> : null}
@@ -473,7 +474,7 @@ export default function SignupWizard() {
                   disabled={loading || otp.join("").length < 6}
                   className="cta w-full rounded-full py-3.5 text-sm font-semibold uppercase tracking-[0.18em] disabled:opacity-50"
                 >
-                  {loading ? "Finishing…" : "Verify & sign in"}
+                  {loading ? "Finishing…" : "Verify & login"}
                 </button>
                 <div className="flex flex-col gap-2">
                   <button
@@ -499,7 +500,7 @@ export default function SignupWizard() {
             <p className="mt-6 text-center text-sm text-white/40">
               Already have an account?{" "}
               <Link href="/login" className="text-[var(--color-brand)] hover:underline">
-                Sign in
+                Login
               </Link>
             </p>
           </>

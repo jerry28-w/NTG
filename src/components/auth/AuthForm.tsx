@@ -1,6 +1,7 @@
 "use client";
 
 import DevOtpBanner from "./DevOtpBanner";
+import PasswordField from "./PasswordField";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -47,7 +48,7 @@ export default function AuthForm({ mode }: Props) {
           setLoading(false);
           setError(
             checkData.reason ??
-              "Finish email verification before signing in.",
+              "Finish email verification before logging in.",
           );
           if (checkData.devOtp) {
             setDevOtp(checkData.devOtp);
@@ -97,12 +98,11 @@ export default function AuthForm({ mode }: Props) {
             <span className="mb-1.5 block text-[10px] font-medium uppercase tracking-[0.28em] text-white/40">
               Password
             </span>
-            <input
-              type="password"
+            <PasswordField
               required
               minLength={8}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={setPassword}
               autoComplete="current-password"
               className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-[var(--color-brand)]/45"
               placeholder="Min. 8 characters"
@@ -111,7 +111,7 @@ export default function AuthForm({ mode }: Props) {
 
           {justRegistered ? (
             <p className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-              Account created. Sign in with your email and password.
+              Account created. Log in with your email and password.
             </p>
           ) : null}
 
@@ -149,7 +149,7 @@ export default function AuthForm({ mode }: Props) {
             disabled={loading}
             className="cta w-full rounded-full py-3.5 text-sm font-semibold uppercase tracking-[0.18em] transition-all hover:scale-[1.02] disabled:opacity-60"
           >
-            {loading ? "Please wait…" : "Sign in"}
+            {loading ? "Please wait…" : "Login"}
           </button>
         </form>
 
