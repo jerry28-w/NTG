@@ -1,4 +1,4 @@
-import { getHomePreviews } from "@landing-home/index";
+import { getHomePreviews } from "@/lib/home-previews";
 import { toTournamentDisplay } from "@/lib/tournament-display";
 import TournamentVault from "@/components/TournamentVault";
 import type { TournamentVaultProps } from "@/components/tournaments/types";

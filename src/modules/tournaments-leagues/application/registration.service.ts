@@ -5,8 +5,12 @@ import {
   type RegistrationParticipantRole,
   type ValorantRole,
 } from "@prisma/client";
-import { findUserByUsername, usernameKeyFromDisplayName } from "@auth-membership/domain/username";
-import { validateCs2RanksForRegistration, normalizeCs2PeakPremierRank } from "@auth-membership/domain/game-profile";
+import {
+  findUserByUsername,
+  usernameKeyFromDisplayName,
+  validateCs2RanksForRegistration,
+  normalizeCs2PeakPremierRank,
+} from "@auth-membership/application/registration-helpers";
 import { isTournamentRegistrationLive } from "../domain/registration-window";
 import { syncUserRank } from "./rank-sync.service";
 

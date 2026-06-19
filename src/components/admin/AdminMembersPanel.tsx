@@ -514,7 +514,7 @@ export default function AdminMembersPanel({ initialMembers }: { initialMembers: 
               </div>
               <p className="text-sm font-semibold text-white/50">No Selection</p>
               <p className="text-xs text-white/30 max-w-xs mx-auto">
-                Select an account from the member list to inspect, edit properties, or click "New Member" to generate accounts.
+                Select an account from the member list to inspect, edit properties, or click &ldquo;New Member&rdquo; to generate accounts.
               </p>
             </div>
           )}

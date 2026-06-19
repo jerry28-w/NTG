@@ -50,7 +50,7 @@ function mapDisplayStatus(status: TournamentStatus): TournamentDisplay["status"]
 export function toTournamentDisplay(t: TournamentPreview): TournamentDisplay {
   const meta = gameMeta[t.game] ?? gameMeta.OTHER;
 
-  let championName = t.championName ?? null;
+  const championName = t.championName ?? null;
 
   return {
     id: t.slug,
