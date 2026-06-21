@@ -370,19 +370,47 @@ export async function syncUserRank(
   const resolvedGameName = fetched.status === "ranked" ? fetched.snapshot.gameName : fetched.gameName;
   const resolvedTagLine = fetched.status === "ranked" ? fetched.snapshot.tagLine : fetched.tagLine;
 
+  let cardLarge: string | undefined;
+  let cardWide: string | undefined;
+  if (!user.riotPlayerCard) {
+    try {
+      const name = resolvedGameName || user.riotGameName;
+      const tag = resolvedTagLine || user.riotTagLine;
+      const encodedName = encodeURIComponent(name);
+      const encodedTag = encodeURIComponent(tag);
+      const res = await henrikFetch(
+        `https://api.henrikdev.xyz/valorant/v1/account/${encodedName}/${encodedTag}`,
+        { headers: henrikHeaders(), next: { revalidate: 0 } },
+      );
+      if (res.ok) {
+        const accData = (await res.json()) as { data?: { card?: { large?: string; wide?: string } } };
+        cardLarge = accData.data?.card?.large;
+        cardWide = accData.data?.card?.wide;
+      }
+    } catch (e) {
+      console.error("Failed to fetch player card on rank sync:", e);
+    }
+  }
+
+  const userUpdateData: Prisma.UserUpdateInput = {};
   if (resolvedGameName && resolvedTagLine) {
+    userUpdateData.riotGameName = resolvedGameName;
+    userUpdateData.riotTagLine = resolvedTagLine;
+  }
+  if (resolvedRegion !== user.riotRegion) {
+    userUpdateData.riotRegion = resolvedRegion;
+  }
+  if (cardLarge) {
+    userUpdateData.riotPlayerCard = cardLarge;
+  }
+  if (cardWide) {
+    userUpdateData.riotPlayerCardWide = cardWide;
+  }
+
+  if (Object.keys(userUpdateData).length > 0) {
     await prisma.user.update({
       where: { id: userId },
-      data: {
-        riotGameName: resolvedGameName,
-        riotTagLine: resolvedTagLine,
-        riotRegion: resolvedRegion,
-      },
-    });
-  } else if (resolvedRegion !== user.riotRegion) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { riotRegion: resolvedRegion },
+      data: userUpdateData,
     });
   }
 
