@@ -15,7 +15,7 @@ export default function LocalBusinessJsonLd() {
     "@context": "https://schema.org",
     "@type": "EntertainmentBusiness",
     "@id": SITE_URL,
-    name: `${brand.name} — ${brand.meaning}`,
+    name: `${brand.name} - ${brand.meaning}`,
     alternateName: ["NTG Esports", "Namma Tulunad Gaming", "ntgesports"],
     url: SITE_URL,
     image: `${SITE_URL}/ntg-logo.png`,

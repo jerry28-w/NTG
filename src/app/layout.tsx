@@ -5,6 +5,7 @@ import AuthSessionProvider from "@/components/providers/SessionProvider";
 import RouteProgressBar from "@/components/providers/RouteProgressBar";
 import { getSession } from "@core/auth/session";
 import CustomCursor from "@/components/CustomCursor";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -22,34 +23,31 @@ const inter = Inter({
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ??
   process.env.AUTH_URL ??
-  "https://www.ntgesports.com";
+  SITE_URL;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "NTG Lounge | Namma Tulunad Gaming",
-    template: "%s | NTG Lounge",
+    default: SITE_TITLE,
+    template: `%s - ${SITE_NAME}`,
   },
-  description:
-    "Mangaluru's premier esports lounge. Ryzen 5 7600X · RTX 5060 · 300Hz. Home to VAL CUP, CS CUP and AUC CUP tournaments.",
+  description: SITE_DESCRIPTION,
   icons: {
-    icon: [
-      { url: "/favicon.png", type: "image/png" },
-      { url: "/ntg-logo.png", type: "image/png" },
-    ],
-    apple: [{ url: "/ntg-logo.png", type: "image/png" }],
-    shortcut: "/favicon.png",
+    icon: [{ url: "/ntg-logo.png", type: "image/png", sizes: "512x512" }],
+    apple: [{ url: "/apple-icon.png", type: "image/png" }],
+    shortcut: "/ntg-logo.png",
   },
   openGraph: {
     type: "website",
-    siteName: "NTG Lounge",
-    title: "NTG Lounge | Namma Tulunad Gaming",
-    description:
-      "Mangaluru's premier esports lounge. Tournaments, rankings, and membership.",
+    siteName: SITE_NAME,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     images: [{ url: "/ntg-logo.png", width: 512, height: 512, alt: "NTG Lounge logo" }],
   },
   twitter: {
     card: "summary",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     images: ["/ntg-logo.png"],
   },
 };
