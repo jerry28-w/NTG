@@ -95,6 +95,7 @@ function toRegistrationBanner(t: RegistrationBannerRow) {
       null,
     hubBannerUrl: t.hubBannerUrl,
     hubCarouselImages: parseCarouselImages(t.hubCarouselImages),
+    status: t.status,
   };
 }
 
