@@ -38,6 +38,11 @@ export function rankEloFromTier(tierId: number, rr = 50): number {
   return (tierId - 3) * 100 + rr;
 }
 
+/** Min/max Henrik elo for a tier id (RR 0–100 within tier). */
+export function rankEloRangeForTier(tierId: number): { min: number; max: number } {
+  return { min: rankEloFromTier(tierId, 0), max: rankEloFromTier(tierId, 100) };
+}
+
 export function formatRankLabel(
   tierId: number | null | undefined,
   tierName: string | null | undefined,
@@ -46,6 +51,11 @@ export function formatRankLabel(
   if (tierName?.trim()) return tierName.trim();
   if (tierId == null) return "Unranked";
   return `Tier ${tierId}`;
+}
+
+/** Leaderboard RR column — unranked / no MMR shows "--". */
+export function formatLeaderboardRr(mmr: number | null | undefined): string {
+  return mmr != null ? mmr.toLocaleString() : "--";
 }
 
 export function tierBracket(tierId: number | null | undefined): string | null {

@@ -3,52 +3,63 @@ import type { LeaderboardPreviewEntry } from "@core/contracts";
 /** Henrik tier id for unranked / no current act rank. */
 export const UNRANKED_TIER_ID = 0;
 
+/** Sort key only — unranked players count as 0 RR; UI still shows "--". */
+export function effectiveBoardMmr(mmr: number | null | undefined): number {
+  return mmr ?? 0;
+}
+
 export function isRankedEntry(mmr: number | null | undefined): boolean {
   return mmr != null;
 }
 
 type SortableEntry = Pick<
   LeaderboardPreviewEntry,
-  "rank" | "mmr" | "rankTierId" | "displayName"
+  "rank" | "storedBoardRank" | "mmr" | "rankTierId" | "displayName"
 >;
 
+function boardSlot(entry: SortableEntry): number {
+  return entry.storedBoardRank ?? entry.rank ?? Number.MAX_SAFE_INTEGER;
+}
+
+export function compareValorantBoardEntries(
+  a: SortableEntry,
+  b: SortableEntry,
+): number {
+  const mmrDiff = effectiveBoardMmr(b.mmr) - effectiveBoardMmr(a.mmr);
+  if (mmrDiff !== 0) return mmrDiff;
+
+  const tierDiff = (b.rankTierId ?? 0) - (a.rankTierId ?? 0);
+  if (tierDiff !== 0) return tierDiff;
+
+  const slotDiff = boardSlot(a) - boardSlot(b);
+  if (slotDiff !== 0) return slotDiff;
+
+  return a.displayName.localeCompare(b.displayName);
+}
+
 /**
- * Ranked players: MMR descending with ranks 1..n.
- * Unranked players: preserve stored board rank order (pre-reset positions).
- * When everyone is unranked, only stored rank order applies.
+ * Board order: effective MMR descending (unranked = 0), then stored slot, then name.
+ * Reassigns display ranks 1..n.
  */
 export function sortValorantBoardEntries<T extends SortableEntry>(
   entries: T[],
+): (T & { rank: number; storedBoardRank: number })[] {
+  const withSlot = entries.map((entry) => ({
+    ...entry,
+    storedBoardRank: boardSlot(entry),
+  }));
+
+  const sorted = [...withSlot].sort(compareValorantBoardEntries);
+
+  return sorted.map((entry, index) => ({
+    ...entry,
+    rank: index + 1,
+  }));
+}
+
+/** Snapshot stored ranks before sync — same sort as public board. */
+export function computeValorantBoardSnapshotRanks<T extends SortableEntry>(
+  entries: T[],
 ): (T & { rank: number })[] {
-  const ranked = entries
-    .filter((e) => isRankedEntry(e.mmr))
-    .sort((a, b) => (b.mmr ?? 0) - (a.mmr ?? 0));
-
-  const unranked = entries
-    .filter((e) => !isRankedEntry(e.mmr))
-    .sort((a, b) => {
-      const ar = a.rank ?? Number.MAX_SAFE_INTEGER;
-      const br = b.rank ?? Number.MAX_SAFE_INTEGER;
-      if (ar !== br) return ar - br;
-      return a.displayName.localeCompare(b.displayName);
-    });
-
-  if (ranked.length === 0) {
-    return unranked.map((e) => ({
-      ...e,
-      rank: e.rank ?? 0,
-    }));
-  }
-
-  const rankedRows = ranked.map((e, i) => ({
-    ...e,
-    rank: i + 1,
-  }));
-
-  const unrankedRows = unranked.map((e) => ({
-    ...e,
-    rank: e.rank ?? rankedRows.length + 1,
-  }));
-
-  return [...rankedRows, ...unrankedRows];
+  return sortValorantBoardEntries(entries);
 }

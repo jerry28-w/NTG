@@ -1,0 +1,1 @@
+ALTER TABLE "LeaderboardEntry" ADD COLUMN IF NOT EXISTS "peakRr" INTEGER;

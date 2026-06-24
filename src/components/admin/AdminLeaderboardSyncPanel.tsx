@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { parseApiJson } from "@/lib/parse-api-json";
+import { formatValorantActLabel } from "@/lib/valorant-act";
+
+const ACT_STORAGE_KEY = "ntg-admin-current-act";
 
 type SyncStats = {
   linkedPlayers: number;
@@ -70,6 +73,8 @@ export default function AdminLeaderboardSyncPanel() {
   const [totals, setTotals] = useState<SyncTotals | null>(null);
   const [pending, setPending] = useState(0);
   const [runStartedAt, setRunStartedAt] = useState<string | null>(null);
+  const [runCurrentAct, setRunCurrentAct] = useState<string | null>(null);
+  const [currentAct, setCurrentAct] = useState("");
   const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
   const [auditChangedOnly, setAuditChangedOnly] = useState(true);
   const [auditLoading, setAuditLoading] = useState(false);
@@ -83,6 +88,15 @@ export default function AdminLeaderboardSyncPanel() {
     }
     if (!res.ok) return;
     setStats(parsed.data.stats as SyncStats);
+    const defaultAct = String(parsed.data.defaultCurrentAct ?? "");
+    setCurrentAct((prev) => {
+      if (prev.trim()) return prev;
+      const stored =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem(ACT_STORAGE_KEY) ?? ""
+          : "";
+      return stored || defaultAct;
+    });
   }, []);
 
   const loadAudit = useCallback(async () => {
@@ -109,11 +123,28 @@ export default function AdminLeaderboardSyncPanel() {
     loadAudit();
   }, [loadAudit]);
 
+  const currentActLabel = useMemo(
+    () => formatValorantActLabel(currentAct.trim()) ?? null,
+    [currentAct],
+  );
+
   async function runFullSync() {
+    const act = currentAct.trim();
+    if (!act) {
+      setPhase("error");
+      setError("Enter the current act (e.g. e11a3) before syncing.");
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ACT_STORAGE_KEY, act);
+    }
+
     setPhase("running");
     setError(null);
     setTotals(null);
     setPending(0);
+    setRunCurrentAct(act);
 
     let startedAt: string | undefined;
     let accumulated: SyncTotals | undefined;
@@ -127,6 +158,7 @@ export default function AdminLeaderboardSyncPanel() {
           body: JSON.stringify({
             runStartedAt: startedAt,
             totals: accumulated,
+            currentAct: act,
           }),
         });
         const parsed = await parseApiJson(res);
@@ -229,6 +261,7 @@ export default function AdminLeaderboardSyncPanel() {
           <p className="mt-1 text-emerald-200/80">
             {totals.synced} updated · {totals.skipped} skipped (no comp rank) · {totals.failed} failed ·{" "}
             {totals.batches} batches
+            {runCurrentAct ? ` · act ${runCurrentAct}` : ""}
             {runStartedAt ? ` · started ${formatWhen(runStartedAt)}` : ""}
           </p>
         </div>
@@ -239,6 +272,33 @@ export default function AdminLeaderboardSyncPanel() {
           {error}
         </p>
       ) : null}
+
+      <div className="mt-5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-4">
+        <label htmlFor="current-act" className="text-[10px] font-bold uppercase tracking-wider text-white/40">
+          Current act (episode)
+        </label>
+        <p className="mt-1 text-xs text-white/45">
+          Current rank only — which act we judge ranked vs unranked (e.g. e11a3). Players without
+          rank in this act show as Unranked with RR --.
+        </p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            id="current-act"
+            type="text"
+            value={currentAct}
+            onChange={(e) => setCurrentAct(e.target.value)}
+            disabled={phase === "running"}
+            placeholder="e11a3"
+            spellCheck={false}
+            className="w-full max-w-xs rounded-lg border border-white/10 bg-[#070b19]/60 px-3 py-2 font-mono text-sm text-white placeholder:text-white/25 focus:border-cyan-500/50 focus:outline-none disabled:opacity-50"
+          />
+          {currentActLabel ? (
+            <span className="text-xs text-cyan-300/80">{currentActLabel}</span>
+          ) : currentAct.trim() ? (
+            <span className="text-xs text-amber-300/80">Use format e11a3 or s26a4</span>
+          ) : null}
+        </div>
+      </div>
 
       <div className="mt-5 flex flex-wrap gap-3">
         <button

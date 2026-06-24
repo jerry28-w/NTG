@@ -5,7 +5,7 @@ import AuthSessionProvider from "@/components/providers/SessionProvider";
 import RouteProgressBar from "@/components/providers/RouteProgressBar";
 import { getSession } from "@core/auth/session";
 import CustomCursor from "@/components/CustomCursor";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, resolveSiteUrl } from "@/lib/site";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -20,10 +20,7 @@ const inter = Inter({
   display: "swap",
 });
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  process.env.AUTH_URL ??
-  SITE_URL;
+const siteUrl = resolveSiteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

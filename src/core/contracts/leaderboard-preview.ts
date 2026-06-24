@@ -2,6 +2,8 @@ import type { GameSlug } from "@prisma/client";
 
 export type LeaderboardPreviewEntry = {
   rank: number;
+  /** Last saved board slot from DB — used to preserve order when MMR ties (e.g. all unranked). */
+  storedBoardRank?: number;
   displayName: string;
   riotId: string | null;
   riotPlayerCard?: string | null;
@@ -9,7 +11,7 @@ export type LeaderboardPreviewEntry = {
   mmr: number | null;
   rankTier: string | null;
   rankTierId: number | null;
-  peakMmr: number | null;
+  currentAct: string | null;
   lastSyncedAt: string | null;
   game: GameSlug;
 };

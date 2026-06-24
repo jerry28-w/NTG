@@ -441,6 +441,11 @@ model LeaderboardEntry {
   rankTier       String?
   rankTierId     Int?
   peakMmr        Int?
+  peakRr         Int?
+  peakRankTier   String?
+  peakRankTierId Int?
+  peakAct        String?
+  currentAct     String?
   rank           Int?
   lastSyncedAt   DateTime?
   updatedAt      DateTime         @updatedAt

@@ -1,5 +1,6 @@
 import { guardResponse, isAuthedAdmin, requireAdmin } from "@/lib/auth-guard";
 import { logAdminAction } from "@/lib/admin-audit";
+import { parseValorantActSeasonKey, formatValorantActLabel } from "@/lib/valorant-act";
 import { serverEnv } from "@core/config/env.server";
 import {
   getLeaderboardSyncStats,
@@ -15,7 +16,20 @@ export const maxDuration = 120;
 type SyncBatchBody = {
   runStartedAt?: string;
   totals?: SyncRunTotals;
+  /** Act to sync against (e11a3 / s26a4). Required for manual full refresh. */
+  currentAct?: string;
 };
+
+function parseCurrentActInput(raw: string | undefined): string | null {
+  if (raw == null) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const parsed = parseValorantActSeasonKey(trimmed);
+  if (!parsed) {
+    throw new Error('Invalid act format. Use something like e11a3 or s26a4.');
+  }
+  return parsed;
+}
 
 function accumulateTotals(prev: SyncRunTotals | undefined, batch: SyncRunTotals): SyncRunTotals {
   return {
@@ -36,7 +50,12 @@ export async function GET() {
 
   try {
     const stats = await getLeaderboardSyncStats();
-    return NextResponse.json({ stats });
+    const defaultCurrentAct = serverEnv.valorantCurrentAct?.trim() || null;
+    return NextResponse.json({
+      stats,
+      defaultCurrentAct,
+      defaultCurrentActLabel: formatValorantActLabel(defaultCurrentAct),
+    });
   } catch (err) {
     console.error("[admin/leaderboard/sync GET]", err);
     return NextResponse.json({ error: "Could not load sync stats." }, { status: 500 });
@@ -69,6 +88,26 @@ export async function POST(req: Request) {
 
   const isNewRun = !body.runStartedAt;
 
+  let currentActOverride: string | null = null;
+  try {
+    const parsed = parseCurrentActInput(body.currentAct);
+    if (isNewRun && !parsed) {
+      return NextResponse.json(
+        {
+          error:
+            "Enter the current Valorant act (e.g. e11a3) before refreshing ranks.",
+        },
+        { status: 400 },
+      );
+    }
+    currentActOverride = parsed;
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Invalid act." },
+      { status: 400 },
+    );
+  }
+
   try {
     const runId = runStartedAt.toISOString();
     const batch = await syncAllLinkedPlayers({
@@ -80,6 +119,7 @@ export async function POST(req: Request) {
         source: "manual",
         runId,
         adminId: auth.userId,
+        currentActOverride,
       },
     });
 
@@ -96,6 +136,7 @@ export async function POST(req: Request) {
     if (complete) {
       await logAdminAction(auth.userId, "leaderboard.sync", undefined, {
         runStartedAt: runStartedAt.toISOString(),
+        currentAct: currentActOverride ?? undefined,
         ...totals,
       });
     }
@@ -103,6 +144,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       runStartedAt: runStartedAt.toISOString(),
+      currentAct: currentActOverride,
       batch,
       totals,
       complete,

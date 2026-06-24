@@ -3,12 +3,12 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSession } from "next-auth/react";
-import type { LeaderboardPreview, LeaderboardPreviewEntry } from "@core/contracts";
+import type { LeaderboardPreview } from "@core/contracts";
+import { formatRankLabel, formatLeaderboardRr, rankAccentClass, rankIconUrl } from "@/lib/valorant-rank";
 import {
-  formatRankLabel,
-  rankAccentClass,
-  rankIconUrl,
-} from "@/lib/valorant-rank";
+  buildLeaderboardView,
+  type LeaderboardViewEntry,
+} from "@/lib/leaderboard-view";
 import BrandIcon from "@/components/ui/BrandIcon";
 import LeaderboardPlayerCardBackdrop from "@/components/platform/LeaderboardPlayerCardBackdrop";
 import { gameMetaFor } from "@/lib/tournament-display";
@@ -22,7 +22,7 @@ function PodiumCard({
   pillBg,
   ringColor,
 }: {
-  entry: LeaderboardPreviewEntry | undefined;
+  entry: LeaderboardViewEntry | undefined;
   rank: number;
   widthClass: string;
   borderColor: string;
@@ -39,7 +39,7 @@ function PodiumCard({
     );
   }
 
-  const icon = rankIconUrl(entry.rankTierId);
+  const icon = rankIconUrl(entry.viewRankTierId);
   const cardImg = entry.riotPlayerCard ?? "https://media.valorant-api.com/playercards/1711d20d-4b1c-c64a-14be-d4ae58a457c6/largeart.png";
 
   return (
@@ -119,7 +119,7 @@ function PodiumCard({
 
         {/* RR Pill Badge */}
         <div className={`mt-2 sm:mt-4 rounded-full px-2 sm:px-5 py-0.5 sm:py-1.5 text-[8px] sm:text-xs font-black tracking-widest text-white shadow-md uppercase ${pillBg}`}>
-          {entry.mmr != null ? `${entry.mmr.toLocaleString()} RR` : "-"}
+          {formatLeaderboardRr(entry.viewMmr)} RR
         </div>
       </div>
     </div>
@@ -174,7 +174,7 @@ export default function ValorantRankingsBoard({ data }: Props) {
   const [showRest, setShowRest] = useState(false);
   const [introComplete, setIntroComplete] = useState(false);
 
-  const sorted = data.entries;
+  const sorted = useMemo(() => buildLeaderboardView(data.entries), [data.entries]);
 
   const userEntry = session?.user?.name
     ? sorted.find((e) => e.displayName === session.user.name)
@@ -465,7 +465,7 @@ export default function ValorantRankingsBoard({ data }: Props) {
           
           {/* Column headers (Visible on large screens) */}
           <div
-            className="mb-4 hidden items-center px-8 text-xs font-bold uppercase tracking-[0.2em] text-white/30 sm:grid border-b border-white/5 pb-4 sm:gap-x-6"
+            className="mb-4 hidden items-center px-8 text-xs font-bold uppercase tracking-[0.2em] text-white/30 lg:grid border-b border-white/5 pb-4 gap-x-6"
             style={{ gridTemplateColumns: "80px 220px 1fr 100px" }}
           >
             <div className="text-center">Rank</div>
@@ -483,10 +483,10 @@ export default function ValorantRankingsBoard({ data }: Props) {
             ) : (
               <ul className="flex flex-col gap-3 relative">
                 {pageEntries.map((e) => {
-                  const icon = rankIconUrl(e.rankTierId);
-                  const accent = rankAccentClass(e.rankTierId);
-                  const label = formatRankLabel(e.rankTierId, e.rankTier);
-                  const edgeColorClass = tierEdgeColor(e.rankTierId);
+                  const icon = rankIconUrl(e.viewRankTierId);
+                  const accent = rankAccentClass(e.viewRankTierId);
+                  const label = formatRankLabel(e.viewRankTierId, e.viewRankTier);
+                  const edgeColorClass = tierEdgeColor(e.viewRankTierId);
                   
                   const isRank1 = e.rank === 1;
                   const isRank2 = e.rank === 2;
@@ -543,7 +543,7 @@ export default function ValorantRankingsBoard({ data }: Props) {
                         }`}
                       />
                       {/* Grid Layout for Row */}
-              <div className="flex w-full items-center gap-x-3 sm:grid sm:gap-x-6 z-10" style={{ gridTemplateColumns: "80px 220px 1fr 100px" }}>
+              <div className="flex w-full items-center gap-x-3 lg:grid lg:gap-x-6 z-10" style={{ gridTemplateColumns: "80px 220px 1fr 100px" }}>
                 
                       {/* Rank Column */}
                       <div className="w-12 sm:w-auto shrink-0 flex items-center justify-center sm:justify-start">
@@ -608,7 +608,7 @@ export default function ValorantRankingsBoard({ data }: Props) {
                         <span className={`font-display font-black tracking-tight ${
                           isUser ? "text-white drop-shadow-lg" : "text-white/90 group-hover:text-white"
                         } ${isTop3 ? 'text-3xl sm:text-5xl' : 'text-xl sm:text-3xl'}`}>
-                          {e.mmr?.toLocaleString() ?? "-"}
+                          {formatLeaderboardRr(e.viewMmr)}
                         </span>
                         <span className="text-[9px] sm:text-[10px] font-black text-[#FF4655]/80 uppercase tracking-widest mt-0.5">
                           RR
@@ -634,10 +634,10 @@ export default function ValorantRankingsBoard({ data }: Props) {
                     <span className="font-display text-4xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]">#{userEntry.rank}</span>
                   </div>
                   <div className="flex items-center gap-4">
-                    {rankIconUrl(userEntry.rankTierId) && (
+                    {rankIconUrl(userEntry.viewRankTierId) && (
                       <Image
-                        src={rankIconUrl(userEntry.rankTierId)!}
-                        alt={userEntry.rankTier ?? ""}
+                        src={rankIconUrl(userEntry.viewRankTierId)!}
+                        alt={userEntry.viewRankTier ?? ""}
                         width={48}
                         height={48}
                         className="object-contain drop-shadow-md"
@@ -646,8 +646,8 @@ export default function ValorantRankingsBoard({ data }: Props) {
                     )}
                     <div className="flex flex-col">
                       <span className="text-base font-black text-white drop-shadow-sm">{userEntry.displayName}</span>
-                      <span className={`text-sm font-bold ${rankAccentClass(userEntry.rankTierId)} mt-0.5`}>
-                        {formatRankLabel(userEntry.rankTierId, userEntry.rankTier)} • {userEntry.mmr != null ? `${userEntry.mmr.toLocaleString()} RR` : "-"}
+                      <span className={`text-sm font-bold ${rankAccentClass(userEntry.viewRankTierId)} mt-0.5`}>
+                        {formatRankLabel(userEntry.viewRankTierId, userEntry.viewRankTier)} • {formatLeaderboardRr(userEntry.viewMmr)} RR
                       </span>
                     </div>
                   </div>

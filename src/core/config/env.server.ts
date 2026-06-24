@@ -34,6 +34,10 @@ export const serverEnv = {
   get henrikdevApiKey() {
     return optional("HENRIKDEV_API_KEY") ?? optional("HENRIKDEV");
   },
+  /** Henrik act key for current episode (e.g. e26a4 or s26a4). Overrides API when set. */
+  get valorantCurrentAct() {
+    return optional("VALORANT_CURRENT_ACT");
+  },
   get steamWebApiKey() {
     return optional("STEAM_WEB_API_KEY");
   },

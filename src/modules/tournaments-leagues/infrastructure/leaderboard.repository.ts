@@ -51,6 +51,7 @@ export class LeaderboardRepository {
 
     const mapped = entries.map((e) => ({
       rank: e.rank ?? 0,
+      storedBoardRank: e.rank ?? Number.MAX_SAFE_INTEGER,
       displayName:
         e.user.playerProfile?.displayName ?? e.user.name ?? "Player",
       riotId:
@@ -62,7 +63,7 @@ export class LeaderboardRepository {
       mmr: e.mmr,
       rankTier: e.rankTier,
       rankTierId: e.rankTierId,
-      peakMmr: e.peakMmr,
+      currentAct: e.currentAct,
       lastSyncedAt: e.lastSyncedAt?.toISOString() ?? null,
       game: e.game,
     }));

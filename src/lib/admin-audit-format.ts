@@ -71,7 +71,11 @@ export function formatAuditOperation(action: string, metadata: unknown): string 
   if (typeof m.synced === "number") {
     const failed = typeof m.failed === "number" ? m.failed : 0;
     const skipped = typeof m.skipped === "number" ? m.skipped : 0;
-    return `${base}: ${m.synced} updated, ${skipped} skipped, ${failed} failed`;
+    const act =
+      typeof m.currentAct === "string" && m.currentAct
+        ? ` · act ${m.currentAct}`
+        : "";
+    return `${base}: ${m.synced} updated, ${skipped} skipped, ${failed} failed${act}`;
   }
 
   return base;

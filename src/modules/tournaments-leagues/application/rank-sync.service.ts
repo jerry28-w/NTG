@@ -1,9 +1,15 @@
 import { prisma } from "@core/database/client";
 import { serverEnv } from "@core/config/env.server";
-import { sortValorantBoardEntries } from "@/lib/leaderboard-sort";
+import { sortValorantBoardEntries, computeValorantBoardSnapshotRanks } from "@/lib/leaderboard-sort";
 import { henrikFetch, henrikHeaders } from "@/lib/henrik-client";
 import { normalizeRiotPlayerCardUrls } from "@/lib/valorant-player-card";
 import { mmrRegionsToTry, normalizeHenrikRegion } from "@/lib/henrik-region";
+import {
+  getActSeasonStats,
+  isActSeasonRanked,
+  resolveCurrentActSeason,
+  type HenrikActSeasonStats,
+} from "@/lib/valorant-act";
 import { GameSlug, LeaderboardScope, LeaderboardSyncSource, Prisma } from "@prisma/client";
 
 export const UNRANKED_TIER_ID = 0;
@@ -27,6 +33,8 @@ export type RankSyncContext = {
   source: RankSyncSource;
   runId?: string;
   adminId?: string;
+  /** Manual sync only: act used to judge current ranked vs unranked. */
+  currentActOverride?: string | null;
 };
 function toPrismaSyncSource(source: RankSyncSource): LeaderboardSyncSource {
   const map: Record<RankSyncSource, LeaderboardSyncSource> = {
@@ -115,7 +123,6 @@ export type MmrSnapshot = {
   mmr: number;
   rankTier: string;
   rankTierId: number;
-  peakMmr: number;
   gameName?: string;
   tagLine?: string;
 };
@@ -128,9 +135,6 @@ type HenrikV3MmrResponse = {
       tier?: { id?: number; name?: string };
       rr?: number;
       elo?: number;
-    };
-    peak?: {
-      tier?: { id?: number; name?: string };
     };
   };
 };
@@ -162,21 +166,12 @@ function parseV3MmrBody(body: HenrikV3MmrResponse): HenrikMmrParseResult | null 
     (typeof current.rr === "number" ? estimateEloFromTier(tierId, current.rr) : null);
   if (mmr == null) return null;
 
-  const rankTierId = tierId;
-  const rankTier = current.tier?.name ?? UNRANKED_TIER_NAME;
-  const peakTierId = body.data?.peak?.tier?.id ?? rankTierId;
-  const peakMmr = Math.max(
-    mmr,
-    peakTierId > rankTierId ? mmr + (peakTierId - rankTierId) * 40 : mmr,
-  );
-
   return {
     kind: "ranked",
     snapshot: {
       mmr,
-      rankTier,
-      rankTierId,
-      peakMmr,
+      rankTier: current.tier?.name ?? UNRANKED_TIER_NAME,
+      rankTierId: tierId,
       gameName: body.data?.account?.name,
       tagLine: body.data?.account?.tag,
     },
@@ -227,6 +222,107 @@ async function fetchV3MmrByName(
   return parseV3MmrBody(body);
 }
 
+type HenrikV2MmrResponse = {
+  data?: {
+    current_data?: {
+      season?: string;
+      currenttierpatched?: string;
+      currenttier?: number;
+    };
+    highest_rank?: {
+      patched_tier?: string;
+      tier?: number;
+      season?: string;
+    };
+    by_season?: Record<string, HenrikActSeasonStats>;
+  };
+};
+
+export type HenrikLifetimeRankMeta = {
+  currentAct: string | null;
+  peakRankTier: string | null;
+  peakRankTierId: number | null;
+  peakAct: string | null;
+};
+
+export type HenrikV2MmrBundle = {
+  lifetime: HenrikLifetimeRankMeta;
+  bySeason: Record<string, HenrikActSeasonStats>;
+  currentActSeason: string | null;
+};
+
+function parseHenrikV2Body(
+  body: HenrikV2MmrResponse,
+  currentActOverride?: string | null,
+): HenrikV2MmrBundle | null {
+  const data = body.data;
+  if (!data) return null;
+
+  const highest = data.highest_rank;
+  const currentActSeason = resolveCurrentActSeason({
+    overrideAct: currentActOverride,
+    envAct: serverEnv.valorantCurrentAct,
+    currentDataSeason: data.current_data?.season,
+  });
+
+  return {
+    lifetime: {
+      currentAct: currentActSeason ?? data.current_data?.season ?? null,
+      peakRankTier: highest?.patched_tier ?? null,
+      peakRankTierId: typeof highest?.tier === "number" ? highest.tier : null,
+      peakAct: highest?.season ?? null,
+    },
+    bySeason: data.by_season ?? {},
+    currentActSeason,
+  };
+}
+
+/** Henrik v2/mmr — current act, lifetime peak, and per-act history. */
+export async function fetchHenrikV2MmrBundle(
+  region: string,
+  gameName: string,
+  tagLine: string,
+  options?: { currentActOverride?: string | null },
+): Promise<HenrikV2MmrBundle | null> {
+  if (!serverEnv.henrikdevApiKey) return null;
+
+  const encodedName = encodeURIComponent(gameName);
+  const encodedTag = encodeURIComponent(tagLine);
+  const reg = normalizeHenrikRegion(region);
+  const res = await henrikFetch(
+    `https://api.henrikdev.xyz/valorant/v2/mmr/${reg}/${encodedName}/${encodedTag}`,
+    { headers: henrikHeaders(), next: { revalidate: 0 } },
+  );
+
+  if (!res.ok) return null;
+
+  const body = (await res.json()) as HenrikV2MmrResponse;
+  return parseHenrikV2Body(body, options?.currentActOverride);
+}
+
+/** @deprecated use fetchHenrikV2MmrBundle */
+export async function fetchHenrikV2Lifetime(
+  region: string,
+  gameName: string,
+  tagLine: string,
+): Promise<HenrikLifetimeRankMeta | null> {
+  const bundle = await fetchHenrikV2MmrBundle(region, gameName, tagLine);
+  return bundle?.lifetime ?? null;
+}
+
+function currentActIsUnranked(bundle: HenrikV2MmrBundle | null): boolean {
+  if (!bundle?.currentActSeason) return false;
+  const stats = getActSeasonStats(bundle.bySeason, bundle.currentActSeason);
+  return !isActSeasonRanked(stats);
+}
+
+function lifetimeDbFields(lifetime: HenrikLifetimeRankMeta | null): {
+  currentAct?: string | null;
+} {
+  if (!lifetime) return {};
+  return { currentAct: lifetime.currentAct };
+}
+
 export async function fetchCompetitiveMmr(
   region: string,
   gameName: string,
@@ -263,7 +359,6 @@ export async function fetchCompetitiveMmr(
         mmr,
         rankTier: tiers[hash % tiers.length]!,
         rankTierId: tierId,
-        peakMmr: mmr + 120,
       },
     };
   }
@@ -343,6 +438,17 @@ export async function syncUserRank(
   }
 
   const region = normalizeHenrikRegion(user.riotRegion);
+  const syncName = user.riotGameName;
+  const syncTag = user.riotTagLine;
+  const actOverride = options?.context?.currentActOverride ?? null;
+  const v2Opts = { currentActOverride: actOverride };
+
+  let v2Bundle: HenrikV2MmrBundle | null = null;
+  try {
+    v2Bundle = await fetchHenrikV2MmrBundle(region, syncName, syncTag, v2Opts);
+  } catch {
+    v2Bundle = null;
+  }
 
   let fetched:
     | { status: "ranked"; snapshot: MmrSnapshot; region: string }
@@ -351,13 +457,22 @@ export async function syncUserRank(
   try {
     fetched = await fetchCompetitiveMmr(
       region,
-      user.riotGameName,
-      user.riotTagLine,
+      syncName,
+      syncTag,
       user.riotPuuid,
       { tryAllRegions: options?.tryAllRegions ?? true },
     );
   } catch {
     return fail("Could not fetch rank from Riot.");
+  }
+
+  if (!fetched && v2Bundle) {
+    fetched = {
+      status: "unranked",
+      region,
+      gameName: syncName,
+      tagLine: syncTag,
+    };
   }
 
   if (!fetched) {
@@ -368,8 +483,31 @@ export async function syncUserRank(
   }
 
   const { region: resolvedRegion } = fetched;
-  const resolvedGameName = fetched.status === "ranked" ? fetched.snapshot.gameName : fetched.gameName;
-  const resolvedTagLine = fetched.status === "ranked" ? fetched.snapshot.tagLine : fetched.tagLine;
+  const resolvedGameName =
+    fetched.status === "ranked" ? fetched.snapshot.gameName : fetched.gameName;
+  const resolvedTagLine =
+    fetched.status === "ranked" ? fetched.snapshot.tagLine : fetched.tagLine;
+
+  const lookupName = resolvedGameName || syncName;
+  const lookupTag = resolvedTagLine || syncTag;
+  if (resolvedRegion !== region || !v2Bundle) {
+    try {
+      v2Bundle = await fetchHenrikV2MmrBundle(resolvedRegion, lookupName, lookupTag, v2Opts);
+    } catch {
+      /* keep prior bundle if any */
+    }
+  }
+
+  if (currentActIsUnranked(v2Bundle)) {
+    fetched = {
+      status: "unranked",
+      region: resolvedRegion,
+      gameName: lookupName,
+      tagLine: lookupTag,
+    };
+  }
+
+  const actFields = lifetimeDbFields(v2Bundle?.lifetime ?? null);
 
   let cardLarge: string | undefined;
   let cardWide: string | undefined;
@@ -428,6 +566,7 @@ export async function syncUserRank(
       mmr: null,
       rankTier: UNRANKED_TIER_NAME,
       rankTierId: UNRANKED_TIER_ID,
+      ...actFields,
       lastSyncedAt: new Date(),
     };
 
@@ -471,7 +610,7 @@ export async function syncUserRank(
     mmr: snapshot.mmr,
     rankTier: snapshot.rankTier,
     rankTierId: snapshot.rankTierId,
-    peakMmr: snapshot.peakMmr,
+    ...actFields,
     lastSyncedAt: new Date(),
   };
 
@@ -667,7 +806,7 @@ export async function snapshotTownBoardRanks(): Promise<number> {
     displayName: e.user.playerProfile?.displayName ?? e.user.name ?? "Player",
   }));
 
-  const sorted = sortValorantBoardEntries(mapped);
+  const sorted = computeValorantBoardSnapshotRanks(mapped);
 
   await prisma.$transaction(
     sorted.map((row) =>
