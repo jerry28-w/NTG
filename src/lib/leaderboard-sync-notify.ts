@@ -13,6 +13,12 @@ export type LeaderboardSyncNotifyPayload = {
   errorMessage?: string;
 };
 
+export type LeaderboardSyncStartPayload = {
+  runStartedAt: Date;
+  totalPlayers: number;
+  currentAct?: string | null;
+};
+
 function parseNotifyEnabled(raw: string | undefined): boolean {
   if (!raw) return false;
   return ["1", "true", "yes", "on"].includes(raw.trim().toLowerCase());
@@ -77,8 +83,17 @@ function buildEmailHtml(payload: LeaderboardSyncNotifyPayload, siteUrl: string):
   `;
 }
 
-export async function notifyLeaderboardSyncComplete(
-  payload: LeaderboardSyncNotifyPayload,
+function siteUrlBase(): string {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    serverEnv.authUrl ??
+    "https://www.ntgesports.com"
+  ).replace(/\/$/, "");
+}
+
+async function sendLeaderboardNotifyEmail(
+  subject: string,
+  html: string,
 ): Promise<{ sent: boolean; reason?: string }> {
   if (!isLeaderboardSyncNotifyEnabled()) {
     return { sent: false, reason: "notify_disabled" };
@@ -97,23 +112,8 @@ export async function notifyLeaderboardSyncComplete(
     return { sent: false, reason: "resend_not_configured" };
   }
 
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    serverEnv.authUrl ??
-    "https://www.ntgesports.com";
-
-  const subject =
-    payload.status === "ok"
-      ? `NTG leaderboard sync completed (${payload.synced} updated)`
-      : "NTG leaderboard sync failed";
-
   const resend = new Resend(apiKey);
-  const { error } = await resend.emails.send({
-    from,
-    to,
-    subject,
-    html: buildEmailHtml(payload, siteUrl.replace(/\/$/, "")),
-  });
+  const { error } = await resend.emails.send({ from, to, subject, html });
 
   if (error) {
     console.error("[leaderboard-sync-notify] Resend error:", error.message);
@@ -122,4 +122,52 @@ export async function notifyLeaderboardSyncComplete(
 
   console.info(`[leaderboard-sync-notify] Sent to ${to}`);
   return { sent: true };
+}
+
+function buildStartEmailHtml(payload: LeaderboardSyncStartPayload, siteUrl: string): string {
+  const actLine = payload.currentAct
+    ? `<tr><td style="padding:6px 0;color:#666">Current act</td><td style="padding:6px 0">${payload.currentAct}</td></tr>`
+    : "";
+
+  return `
+    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
+      <h2 style="margin:0 0 8px">NTG leaderboard rank sync</h2>
+      <p style="margin:0 0 20px;color:#8b5cf6;font-weight:600">Started</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <tr><td style="padding:6px 0;color:#666">Started (UTC)</td><td style="padding:6px 0">${payload.runStartedAt.toISOString()}</td></tr>
+        <tr><td style="padding:6px 0;color:#666">Linked players</td><td style="padding:6px 0">${payload.totalPlayers}</td></tr>
+        ${actLine}
+      </table>
+      <p style="margin:24px 0 0;color:#666;font-size:14px">
+        The nightly cron is refreshing rank, MMR, and player cards. You will receive another email when it finishes.
+      </p>
+      <p style="margin:24px 0 0">
+        <a href="${siteUrl}/admin" style="color:#0891b2">Open superadmin dashboard</a>
+      </p>
+    </div>
+  `;
+}
+
+export async function notifyLeaderboardSyncStarted(
+  payload: LeaderboardSyncStartPayload,
+): Promise<{ sent: boolean; reason?: string }> {
+  const siteUrl = siteUrlBase();
+  return sendLeaderboardNotifyEmail(
+    `NTG leaderboard sync started (${payload.totalPlayers} players)`,
+    buildStartEmailHtml(payload, siteUrl),
+  );
+}
+
+export async function notifyLeaderboardSyncComplete(
+  payload: LeaderboardSyncNotifyPayload,
+): Promise<{ sent: boolean; reason?: string }> {
+  const subject =
+    payload.status === "ok"
+      ? `NTG leaderboard sync completed (${payload.synced} updated)`
+      : "NTG leaderboard sync failed";
+
+  return sendLeaderboardNotifyEmail(
+    subject,
+    buildEmailHtml(payload, siteUrlBase()),
+  );
 }

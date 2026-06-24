@@ -1,6 +1,8 @@
 import Link from "next/link";
 import AdminLeaderboardSyncPanel from "@/components/admin/AdminLeaderboardSyncPanel";
 import AdminAuditLogPanel from "@/components/admin/AdminAuditLogPanel";
+import { isSuperAdminEmail } from "@/lib/superadmin";
+import { getSession } from "@core/auth/session";
 import { listTournamentsAdmin } from "@tournaments-leagues/index";
 import { prisma } from "@core/database/client";
 import { serverEnv } from "@core/config/env.server";
@@ -67,6 +69,8 @@ const colorMap: Record<string, { hover: string; arrow: string; icon: string }> =
 };
 
 export default async function AdminDashboardPage() {
+  const session = await getSession();
+  const isSuperAdmin = isSuperAdminEmail(session?.user?.email);
   const tournaments = serverEnv.databaseUrl ? await listTournamentsAdmin() : [];
   const memberCount = serverEnv.databaseUrl ? await prisma.user.count() : 0;
   const openCup = tournaments.find((t) => t.status === "REGISTRATION_OPEN");
@@ -193,7 +197,7 @@ export default async function AdminDashboardPage() {
       <AdminAuditLogPanel />
 
       {/* Leaderboard Sync */}
-      <AdminLeaderboardSyncPanel />
+      <AdminLeaderboardSyncPanel showCronStatus={isSuperAdmin} />
     </div>
   );
 }

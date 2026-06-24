@@ -9,6 +9,7 @@ import {
   getLeaderboardSyncNotifyEmail,
   isLeaderboardSyncNotifyEnabled,
   notifyLeaderboardSyncComplete,
+  notifyLeaderboardSyncStarted,
 } from "@/lib/leaderboard-sync-notify";
 import {
   getEnvValorantActKey,
@@ -225,6 +226,11 @@ export async function GET(req: Request) {
       currentAct: envAct,
       totalPlayers,
     });
+    await notifyLeaderboardSyncStarted({
+      runStartedAt,
+      totalPlayers,
+      currentAct: envAct,
+    }).catch(() => {});
     console.info("[cron/sync-ranks] Daily run started", {
       runStartedAt: runStartedAt.toISOString(),
       totalPlayers,

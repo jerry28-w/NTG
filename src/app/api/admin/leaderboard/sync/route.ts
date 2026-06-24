@@ -1,4 +1,5 @@
 import { guardResponse, isAuthedAdmin, requireAdmin } from "@/lib/auth-guard";
+import { isSuperAdminEmail } from "@/lib/superadmin";
 import { logAdminAction } from "@/lib/admin-audit";
 import { formatValorantActLabel, parseValorantActSeasonKey } from "@/lib/valorant-act";
 import { getLeaderboardCronStatus } from "@/lib/leaderboard-cron-status";
@@ -54,14 +55,16 @@ export async function GET() {
   if (!isAuthedAdmin(auth)) return guardResponse(auth)!;
 
   try {
+    const isSuperAdmin = isSuperAdminEmail(auth.session.user.email);
     const [stats, cronRun] = await Promise.all([
       getLeaderboardSyncStats(),
-      getLeaderboardCronStatus(),
+      isSuperAdmin ? getLeaderboardCronStatus() : Promise.resolve(null),
     ]);
     const envAct = getEnvValorantActKey();
     return NextResponse.json({
       stats,
-      cronRun,
+      cronRun: isSuperAdmin ? cronRun : null,
+      canViewCronStatus: isSuperAdmin,
       currentAct: envAct,
       currentActLabel: formatValorantActLabel(envAct),
       envConfigured: Boolean(serverEnv.valorantCurrentAct?.trim()),

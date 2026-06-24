@@ -78,7 +78,11 @@ function sourceLabel(source: string): string {
   }
 }
 
-export default function AdminLeaderboardSyncPanel() {
+export default function AdminLeaderboardSyncPanel({
+  showCronStatus = false,
+}: {
+  showCronStatus?: boolean;
+}) {
   const [stats, setStats] = useState<SyncStats | null>(null);
   const [currentAct, setCurrentAct] = useState<string | null>(null);
   const [currentActLabel, setCurrentActLabel] = useState<string | null>(null);
@@ -112,10 +116,12 @@ export default function AdminLeaderboardSyncPanel() {
     setCurrentActLabel((data.currentActLabel as string | null) ?? null);
     setEnvConfigured(Boolean(data.envConfigured));
 
-    const nextCron = (data.cronRun as CronRunStatus | null) ?? null;
+    const nextCron = showCronStatus
+      ? ((data.cronRun as CronRunStatus | null) ?? null)
+      : null;
     setCronRun(nextCron);
 
-    if (nextCron) {
+    if (showCronStatus && nextCron) {
       const prev = prevCronPhaseRef.current;
       const key = `${nextCron.runStartedAt}:${nextCron.phase}`;
       if (prev !== key) {
@@ -132,7 +138,7 @@ export default function AdminLeaderboardSyncPanel() {
         prevCronPhaseRef.current = key;
       }
     }
-  }, []);
+  }, [showCronStatus]);
 
   const loadAudit = useCallback(async () => {
     setAuditLoading(true);
@@ -155,23 +161,24 @@ export default function AdminLeaderboardSyncPanel() {
   }, [loadStats]);
 
   useEffect(() => {
+    if (!showCronStatus) return;
     const ms = cronRun?.phase === "running" ? 4000 : 12000;
     const id = setInterval(() => {
       void loadStats();
     }, ms);
     return () => clearInterval(id);
-  }, [loadStats, cronRun?.phase]);
+  }, [loadStats, cronRun?.phase, showCronStatus]);
 
   useEffect(() => {
-    if (cronRun?.phase !== "complete") return;
+    if (!showCronStatus || cronRun?.phase !== "complete") return;
     void loadAudit();
-  }, [cronRun?.phase, cronRun?.runStartedAt, loadAudit]);
+  }, [cronRun?.phase, cronRun?.runStartedAt, loadAudit, showCronStatus]);
 
   useEffect(() => {
-    if (!cronFlash) return;
+    if (!showCronStatus || !cronFlash) return;
     const id = setTimeout(() => setCronFlash(null), 12000);
     return () => clearTimeout(id);
-  }, [cronFlash]);
+  }, [cronFlash, showCronStatus]);
 
   useEffect(() => {
     loadAudit();
@@ -253,7 +260,7 @@ export default function AdminLeaderboardSyncPanel() {
       ? Math.min(100, Math.round((cronProcessed / cronRun.totalPlayers) * 100))
       : 0;
   const showCronBanner =
-    cronRun != null && cronRun.runStartedAt !== dismissedCronRunId;
+    showCronStatus && cronRun != null && cronRun.runStartedAt !== dismissedCronRunId;
 
   return (
     <section className="rounded-2xl border border-white/[0.06] bg-[#0c1424]/40 p-6 shadow-xl backdrop-blur-sm">
@@ -278,7 +285,7 @@ export default function AdminLeaderboardSyncPanel() {
         </Link>
       </div>
 
-      {cronFlash ? (
+      {showCronStatus && cronFlash ? (
         <div
           role="status"
           className="mt-4 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100 shadow-lg shadow-cyan-500/5"
