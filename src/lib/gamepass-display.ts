@@ -40,11 +40,13 @@ export function getPlanPriceRows(plan: GamepassPlanView): PlanPriceRow[] | null 
   }
 
   if (plan.priceSingle != null) {
-    const unit = plan.title.toLowerCase().includes("pack")
-      ? packUnitFromTitle(plan.title)
-      : plan.category === "PC"
-        ? "/ hr"
-        : "/ session";
+    const unit = plan.slug.includes("group")
+      ? "/ person / hr"
+      : plan.title.toLowerCase().includes("pack")
+        ? packUnitFromTitle(plan.title)
+        : plan.category === "PC"
+          ? "/ hr"
+          : "/ hr";
 
     return [{ amount: plan.priceSingle, unit }];
   }

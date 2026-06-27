@@ -73,18 +73,19 @@ const GAMEPASS_PLANS: PlanSeed[] = [
     slug: "ps-single-player",
     category: "PLAYSTATION",
     title: "Single Player",
+    subtitle: "Per hour",
     priceSingle: 80,
     sortOrder: 50,
-    whatsappMessage: "Hi NTG Lounge, I'd like a single player PlayStation slot.",
+    whatsappMessage: "Hi NTG Lounge, I'd like a single player PlayStation session (₹80/hr).",
   },
   {
-    slug: "ps-controller-hour",
+    slug: "ps-group-2-4",
     category: "PLAYSTATION",
-    title: "Controller Hourly",
-    subtitle: "Per controller",
-    priceController: 70,
-    sortOrder: 60,
-    whatsappMessage: "Hi NTG Lounge, I'd like to inquire about controller hourly rates.",
+    title: "Group Play",
+    subtitle: "2–4 players · per person per hour",
+    priceSingle: 70,
+    sortOrder: 55,
+    whatsappMessage: "Hi NTG Lounge, I'd like a group PlayStation session for 2–4 players (₹70/person/hr).",
   },
   {
     slug: "ps-5-hour",
@@ -173,7 +174,7 @@ const HOST_OFFERINGS = [
 export async function seedLoungeCommerce(prisma: PrismaClient): Promise<void> {
   // Clean up outdated plans
   await prisma.gamepassPlan.deleteMany({
-    where: { slug: "ps-happy-hour" },
+    where: { slug: { in: ["ps-happy-hour", "ps-controller-hour"] } },
   });
 
   for (const plan of GAMEPASS_PLANS) {
