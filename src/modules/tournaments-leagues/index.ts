@@ -40,6 +40,7 @@ export {
 } from "./application/leaderboard-hourly-refresh.service";
 export {
   registerForTournament,
+  registerStandardTeam,
   registerFifaTeam,
   getRegistrationEligibility,
   setTournamentPlacements,

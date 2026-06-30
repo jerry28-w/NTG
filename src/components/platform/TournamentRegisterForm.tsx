@@ -20,7 +20,6 @@ export type RegistrationPreview = {
   cs2PeakPremierRank: string | null;
   cs2FaceitRank: string | null;
   valorantRankTier: string | null;
-  clashRoyaleTag: string | null;
   canRegister: boolean;
   missing: string[];
 };
@@ -72,9 +71,6 @@ function ProfilePreview({
       {game === "CS2" && preview.cs2PeakPremierRank ? (
         <p className="text-white/45">Peak premier: {preview.cs2PeakPremierRank}</p>
       ) : null}
-      {game === "CLASH_ROYALE" && preview.clashRoyaleTag ? (
-        <p className="text-white/45">Player tag: {preview.clashRoyaleTag}</p>
-      ) : null}
     </div>
   );
 }
@@ -96,6 +92,7 @@ export default function TournamentRegisterForm({
   const [participantRole, setParticipantRole] = useState<"CAPTAIN" | "PLAYER" | null>(null);
   const [teamName, setTeamName] = useState("");
   const [coCaptainUsername, setCoCaptainUsername] = useState("");
+  const [memberUsernames, setMemberUsernames] = useState(["", "", "", ""]);
   const [partnerUsername, setPartnerUsername] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -211,7 +208,7 @@ export default function TournamentRegisterForm({
     }
   }
 
-  async function submitClashRoyaleSolo() {
+  async function submitStandardRegistration() {
     if (submitting.current || loading || !acceptedTerms) return;
     submitting.current = true;
     setLoading(true);
@@ -221,7 +218,12 @@ export default function TournamentRegisterForm({
       const res = await fetch(`/api/tournaments/${slug}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acceptedTerms: true }),
+        body: JSON.stringify({
+          teamName: teamName.trim(),
+          logoUrl: logoUrl!,
+          memberUsernames: memberUsernames.map((u) => u.trim()),
+          acceptedTerms: true,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -282,6 +284,8 @@ export default function TournamentRegisterForm({
     }
   }
 
+  const standardMembersComplete = memberUsernames.every((u) => u.trim().length >= 2);
+
   if (game === "EA_FC26") {
     return (
       <div className="shine-border rounded-[1.35rem] lg:sticky lg:top-28">
@@ -333,14 +337,14 @@ export default function TournamentRegisterForm({
     );
   }
 
-  if (game === "CLASH_ROYALE" && registrationFormat === "DUO") {
+  if (registrationFormat === "STANDARD") {
     return (
       <div className="shine-border rounded-[1.35rem] lg:sticky lg:top-28">
         <div className="shine-border-inner space-y-4 rounded-[1.35rem] bg-[#0a1020]/85 p-6 backdrop-blur-sm">
           <div>
             <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-[var(--color-brand)]/85">Register</p>
             <p className="mt-2 text-sm text-white/45">
-              Register your 2v2 team. Your partner must have an NTG account with a linked Clash Royale tag.
+              Register your full 5-player team. You are the captain — add 4 teammates by NTG username.
             </p>
           </div>
 
@@ -353,14 +357,30 @@ export default function TournamentRegisterForm({
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
             />
-            <input
-              className={inputClass}
-              placeholder="Partner username"
-              value={partnerUsername}
-              onChange={(e) => setPartnerUsername(e.target.value)}
-            />
+            <div>
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={logoUploading} className="w-full rounded-xl border border-dashed border-white/15 py-3 text-xs uppercase tracking-wider text-white/55 hover:border-white/30">
+                {logoUploading ? "Uploading…" : logoUrl ? "Logo uploaded. Tap to change" : "Upload team logo (max 10 MB)"}
+              </button>
+              {logoUrl ? <p className="mt-1 truncate text-[10px] text-emerald-300/80">{logoUrl}</p> : null}
+            </div>
+            <p className="text-xs font-medium uppercase tracking-wider text-white/40">Teammates</p>
+            {memberUsernames.map((username, index) => (
+              <input
+                key={index}
+                className={inputClass}
+                placeholder={`Teammate ${index + 1} username`}
+                value={username}
+                onChange={(e) => {
+                  const next = [...memberUsernames];
+                  next[index] = e.target.value;
+                  setMemberUsernames(next);
+                }}
+              />
+            ))}
             <p className="text-xs text-white/40">
-              Share your username ({preview?.displayName ?? "see profile"}) with your partner so they can find you too.
+              All teammates must be NTG members with complete game profiles
+              {game === "CS2" ? " (Steam linked)" : game === "VALORANT" ? " (Riot ID linked)" : ""}.
             </p>
             <RegistrationTermsAgreement
               checked={acceptedTerms}
@@ -370,47 +390,11 @@ export default function TournamentRegisterForm({
             />
             <button
               type="button"
-              onClick={submitDuoRegistration}
-              disabled={loading || !teamName.trim() || !partnerUsername.trim() || !acceptedTerms}
+              onClick={submitStandardRegistration}
+              disabled={loading || !teamName.trim() || !logoUrl || !standardMembersComplete || !acceptedTerms}
               className="cta w-full rounded-full py-3 text-xs font-semibold uppercase tracking-[0.18em] disabled:opacity-50"
             >
               {loading ? "Registering…" : "Register team"}
-            </button>
-          </div>
-
-          {error ? <p className="text-sm text-red-400/90">{error}</p> : null}
-        </div>
-      </div>
-    );
-  }
-
-  if (game === "CLASH_ROYALE") {
-    return (
-      <div className="shine-border rounded-[1.35rem] lg:sticky lg:top-28">
-        <div className="shine-border-inner space-y-4 rounded-[1.35rem] bg-[#0a1020]/85 p-6 backdrop-blur-sm">
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-[var(--color-brand)]/85">Register</p>
-            <p className="mt-2 text-sm text-white/45">
-              Register for the 1v1 bracket. You&apos;ll compete individually.
-            </p>
-          </div>
-
-          <ProfilePreview preview={preview} game={game} />
-
-          <div className="space-y-3">
-            <RegistrationTermsAgreement
-              checked={acceptedTerms}
-              onChange={setAcceptedTerms}
-              rulebookUrl={rulebookUrl}
-              disabled={loading}
-            />
-            <button
-              type="button"
-              onClick={submitClashRoyaleSolo}
-              disabled={loading || !acceptedTerms}
-              className="cta w-full rounded-full py-3 text-xs font-semibold uppercase tracking-[0.18em] disabled:opacity-50"
-            >
-              {loading ? "Registering…" : "Confirm registration"}
             </button>
           </div>
 

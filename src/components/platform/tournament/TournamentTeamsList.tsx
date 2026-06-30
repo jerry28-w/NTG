@@ -89,17 +89,10 @@ function TeamPreviewScreen({
                 </span>
               </div>
               <dl className="mt-4 space-y-2.5 text-sm">
-                {game === "CLASH_ROYALE" ? (
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-white/40">Player tag</dt>
-                    <dd className="text-right font-mono text-white/85">{player.riotId ?? "—"}</dd>
-                  </div>
-                ) : (
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-white/40">Olympus ID</dt>
-                    <dd className="text-right text-white/85">{player.olympusId ?? "—"}</dd>
-                  </div>
-                )}
+                <div className="flex justify-between gap-4">
+                  <dt className="text-white/40">Olympus ID</dt>
+                  <dd className="text-right text-white/85">{player.olympusId ?? "—"}</dd>
+                </div>
               </dl>
             </li>
           ))}
@@ -130,8 +123,7 @@ export default function TournamentTeamsList({
           players: [],
         }));
 
-  const isDuoTeamCup =
-    game === "EA_FC26" || (game === "CLASH_ROYALE" && registrationFormat === "DUO");
+  const isDuoTeamCup = game === "EA_FC26";
 
   return (
     <section>

@@ -108,7 +108,6 @@ const checkboxLabelClass =
   "flex items-center gap-3 rounded-xl border border-white/[0.05] bg-[#0a1020]/30 px-4 py-3 text-sm text-white/70 hover:bg-white/[0.02] cursor-pointer transition-colors";
 
 const SUPPORTS_FORMAT = ["VALORANT", "CS2"];
-const SUPPORTS_CR_FORMAT = ["CLASH_ROYALE"];
 
 type CupFields = Omit<
   TournamentData,
@@ -140,9 +139,7 @@ function getSavePayload(form: TournamentData) {
     rulebookUrl: emptyToNull(form.rulebookUrl),
     registrationFormat: SUPPORTS_FORMAT.includes(form.game)
       ? (form.registrationFormat ?? "AUCTION")
-      : SUPPORTS_CR_FORMAT.includes(form.game)
-        ? (form.registrationFormat ?? "SOLO")
-        : null,
+      : null,
   };
 }
 
@@ -229,7 +226,14 @@ export default function AdminTournamentEditor({
   const [addRole, setAddRole] = useState<"PLAYER" | "CAPTAIN">("PLAYER");
   const [addTeamName, setAddTeamName] = useState("");
   const [addCoCaptainUsername, setAddCoCaptainUsername] = useState("");
+  const [addMemberUsernames, setAddMemberUsernames] = useState(["", "", "", ""]);
   const [addingMember, setAddingMember] = useState(false);
+
+  const isAuctionFormat =
+    SUPPORTS_FORMAT.includes(form.game) &&
+    (form.registrationFormat === "AUCTION" || !form.registrationFormat);
+  const isStandardFormat =
+    SUPPORTS_FORMAT.includes(form.game) && form.registrationFormat === "STANDARD";
 
   const prizeSplitDisplay =
     form.prizeSplit ??
@@ -319,6 +323,7 @@ export default function AdminTournamentEditor({
 
   async function addMemberRegistration() {
     if (!selectedMember) return;
+    const participantRole = isStandardFormat ? "CAPTAIN" : addRole;
     setAddingMember(true);
     setMessage(null);
     try {
@@ -327,9 +332,14 @@ export default function AdminTournamentEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: selectedMember.id,
-          participantRole: addRole,
-          teamName: addRole === "CAPTAIN" ? addTeamName.trim() : undefined,
-          coCaptainUsername: addRole === "CAPTAIN" ? addCoCaptainUsername.trim() : undefined,
+          participantRole,
+          teamName: participantRole === "CAPTAIN" ? addTeamName.trim() : undefined,
+          coCaptainUsername:
+            participantRole === "CAPTAIN" && isAuctionFormat ? addCoCaptainUsername.trim() : undefined,
+          memberUsernames:
+            participantRole === "CAPTAIN" && isStandardFormat
+              ? addMemberUsernames.map((u) => u.trim())
+              : undefined,
         }),
       });
       const data = await res.json();
@@ -342,6 +352,7 @@ export default function AdminTournamentEditor({
       setMemberResults([]);
       setAddTeamName("");
       setAddCoCaptainUsername("");
+      setAddMemberUsernames(["", "", "", ""]);
       setAddRole("PLAYER");
       setMessage("Member added to cup.");
       refreshLists();
@@ -451,9 +462,7 @@ export default function AdminTournamentEditor({
           rulebookUrl: emptyToNull(form.rulebookUrl),
           registrationFormat: SUPPORTS_FORMAT.includes(form.game)
             ? (form.registrationFormat ?? "AUCTION")
-            : SUPPORTS_CR_FORMAT.includes(form.game)
-              ? (form.registrationFormat ?? "SOLO")
-              : null,
+            : null,
         }),
       });
       const data = await readJsonResponse(res);
@@ -797,18 +806,13 @@ export default function AdminTournamentEditor({
                       setForm({
                         ...form,
                         game: next,
-                        registrationFormat: SUPPORTS_FORMAT.includes(next)
-                          ? "AUCTION"
-                          : SUPPORTS_CR_FORMAT.includes(next)
-                            ? "SOLO"
-                            : form.registrationFormat,
+                        registrationFormat: SUPPORTS_FORMAT.includes(next) ? "AUCTION" : form.registrationFormat,
                       });
                     }}
                   >
                     <option value="VALORANT" className="bg-[#0a1020]">Valorant</option>
                     <option value="CS2" className="bg-[#0a1020]">CS2</option>
                     <option value="EA_FC26" className="bg-[#0a1020]">EA FC26</option>
-                    <option value="CLASH_ROYALE" className="bg-[#0a1020]">Clash Royale</option>
                     <option value="OTHER" className="bg-[#0a1020]">Other</option>
                   </select>
                 </div>
@@ -844,38 +848,6 @@ export default function AdminTournamentEditor({
                     >
                       <p className="text-sm font-semibold">Standard (5v5)</p>
                       <p className="mt-0.5 text-[10px] leading-relaxed text-white/40">Captain registers full 5-player team upfront. All 5 must have NTG accounts.</p>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {SUPPORTS_CR_FORMAT.includes(form.game) && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">Match Format</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, registrationFormat: "SOLO" })}
-                      className={`rounded-xl border px-4 py-3 text-left transition-all ${
-                        form.registrationFormat === "SOLO" || !form.registrationFormat
-                          ? "border-blue-500/40 bg-blue-500/[0.08] text-blue-200"
-                          : "border-white/10 bg-white/[0.02] text-white/50 hover:border-white/20"
-                      }`}
-                    >
-                      <p className="text-sm font-semibold">1v1 Solo</p>
-                      <p className="mt-0.5 text-[10px] leading-relaxed text-white/40">Each player registers individually.</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, registrationFormat: "DUO" })}
-                      className={`rounded-xl border px-4 py-3 text-left transition-all ${
-                        form.registrationFormat === "DUO"
-                          ? "border-indigo-500/40 bg-indigo-500/[0.08] text-indigo-200"
-                          : "border-white/10 bg-white/[0.02] text-white/50 hover:border-white/20"
-                      }`}
-                    >
-                      <p className="text-sm font-semibold">2v2 Duo</p>
-                      <p className="mt-0.5 text-[10px] leading-relaxed text-white/40">One player registers a team and partner.</p>
                     </button>
                   </div>
                 </div>
@@ -1314,8 +1286,14 @@ export default function AdminTournamentEditor({
                       value={addRole}
                       onChange={(e) => setAddRole(e.target.value as "PLAYER" | "CAPTAIN")}
                     >
-                      <option value="PLAYER" className="bg-[#0a1020]">Player</option>
-                      <option value="CAPTAIN" className="bg-[#0a1020]">Captain (creates team)</option>
+                      {isAuctionFormat ? (
+                        <>
+                          <option value="PLAYER" className="bg-[#0a1020]">Player</option>
+                          <option value="CAPTAIN" className="bg-[#0a1020]">Captain (creates team)</option>
+                        </>
+                      ) : (
+                        <option value="CAPTAIN" className="bg-[#0a1020]">Captain (creates team)</option>
+                      )}
                     </select>
                   </div>
                   {addRole === "CAPTAIN" ? (
@@ -1330,13 +1308,36 @@ export default function AdminTournamentEditor({
                         />
                       </div>
                       <div className="space-y-1 sm:col-span-2">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">Co-captain username</label>
-                        <input
-                          className={inputClass}
-                          value={addCoCaptainUsername}
-                          onChange={(e) => setAddCoCaptainUsername(e.target.value)}
-                          placeholder="NTG username"
-                        />
+                        {isStandardFormat ? (
+                          <>
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">Teammate usernames (4)</label>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {addMemberUsernames.map((username, index) => (
+                                <input
+                                  key={index}
+                                  className={inputClass}
+                                  value={username}
+                                  onChange={(e) => {
+                                    const next = [...addMemberUsernames];
+                                    next[index] = e.target.value;
+                                    setAddMemberUsernames(next);
+                                  }}
+                                  placeholder={`Teammate ${index + 1}`}
+                                />
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">Co-captain username</label>
+                            <input
+                              className={inputClass}
+                              value={addCoCaptainUsername}
+                              onChange={(e) => setAddCoCaptainUsername(e.target.value)}
+                              placeholder="NTG username"
+                            />
+                          </>
+                        )}
                       </div>
                     </>
                   ) : null}
@@ -1347,7 +1348,10 @@ export default function AdminTournamentEditor({
                   disabled={
                     addingMember ||
                     !selectedMember ||
-                    (addRole === "CAPTAIN" && (!addTeamName.trim() || !addCoCaptainUsername.trim()))
+                    (addRole === "CAPTAIN" &&
+                      (!addTeamName.trim() ||
+                        (isAuctionFormat && !addCoCaptainUsername.trim()) ||
+                        (isStandardFormat && !addMemberUsernames.every((u) => u.trim().length >= 2))))
                   }
                   className="rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
                 >
@@ -1373,14 +1377,12 @@ export default function AdminTournamentEditor({
                             <th className="px-3 py-2">Faceit</th>
                             <th className="px-3 py-2">Premier</th>
                           </>
-                        ) : form.game === "EA_FC26" || (form.game === "CLASH_ROYALE" && form.registrationFormat === "DUO") ? (
+                        ) : form.game === "EA_FC26" ? (
                           <>
-                            <th className="px-3 py-2">{form.game === "CLASH_ROYALE" ? "Player tag" : "Olympus"}</th>
+                            <th className="px-3 py-2">Olympus</th>
                             <th className="px-3 py-2">Partner username</th>
                             <th className="px-3 py-2">Partner</th>
                           </>
-                        ) : form.game === "CLASH_ROYALE" ? (
-                          <th className="px-3 py-2">Player tag</th>
                         ) : (
                           <>
                             <th className="px-3 py-2">Riot ID</th>
@@ -1406,14 +1408,12 @@ export default function AdminTournamentEditor({
                               <td className="px-3 py-2">{r.cs2FaceitRank ?? "—"}</td>
                               <td className="px-3 py-2">{r.cs2PeakPremier ?? "—"}</td>
                             </>
-                          ) : form.game === "EA_FC26" || (form.game === "CLASH_ROYALE" && form.registrationFormat === "DUO") ? (
+                          ) : form.game === "EA_FC26" ? (
                             <>
-                              <td className="px-3 py-2">{form.game === "CLASH_ROYALE" ? (r.riotId ?? "—") : (r.olympusId ?? "—")}</td>
+                              <td className="px-3 py-2">{r.olympusId ?? "—"}</td>
                               <td className="px-3 py-2">{r.partnerUsername ?? "—"}</td>
                               <td className="px-3 py-2">{r.partnerName ?? "—"}</td>
                             </>
-                          ) : form.game === "CLASH_ROYALE" ? (
-                            <td className="px-3 py-2 font-mono">{r.riotId ?? "—"}</td>
                           ) : (
                             <>
                               <td className="px-3 py-2 font-mono">{r.riotId ?? "—"}</td>
@@ -1454,10 +1454,21 @@ export default function AdminTournamentEditor({
               <div className="space-y-6">
                 <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
                   <p className="text-xs text-white/50">
-                    <span className="font-semibold text-white/70">Auction rosters:</span> captains register with a co-captain at signup.
-                    After the draft, assign players from the pool to each team below.
+                    {isAuctionFormat ? (
+                      <>
+                        <span className="font-semibold text-white/70">Auction rosters:</span> captains register with a co-captain at signup.
+                        After the draft, assign players from the pool to each team below.
+                      </>
+                    ) : isStandardFormat ? (
+                      <>
+                        <span className="font-semibold text-white/70">Standard rosters:</span> captains register the full 5-player team at signup.
+                        All players appear under their team below.
+                      </>
+                    ) : (
+                      <>Registered teams and rosters for this cup.</>
+                    )}
                   </p>
-                  {poolPlayers.length > 0 ? (
+                  {isAuctionFormat && poolPlayers.length > 0 ? (
                     <p className="mt-2 text-xs text-[var(--color-brand)]/80">
                       {poolPlayers.length} unassigned player{poolPlayers.length === 1 ? "" : "s"} in the pool
                     </p>
@@ -1502,12 +1513,15 @@ export default function AdminTournamentEditor({
                             const leadership = matchingRegs.filter((r) =>
                               ["CAPTAIN", "CO_CAPTAIN"].includes(r.participantRole),
                             );
+                            const rosterPlayers = matchingRegs.filter((r) => r.participantRole === "PLAYER");
                             const drafted = team.players;
 
-                            if (leadership.length === 0 && drafted.length === 0) {
+                            if (leadership.length === 0 && rosterPlayers.length === 0 && drafted.length === 0) {
                               return (
                                 <p className="text-xs text-white/30 italic">
-                                  Captain and co-captain appear here after team registration.
+                                  {isAuctionFormat
+                                    ? "Captain and co-captain appear here after team registration."
+                                    : "Team roster appears here after registration."}
                                 </p>
                               );
                             }
@@ -1524,6 +1538,17 @@ export default function AdminTournamentEditor({
                                       <span className="ml-2 text-white/40 text-[10px] uppercase">
                                         {formatParticipantRole(r.participantRole)}
                                       </span>
+                                    </div>
+                                  </li>
+                                ))}
+                                {rosterPlayers.map((r) => (
+                                  <li
+                                    key={r.id}
+                                    className="flex items-center justify-between rounded-lg bg-white/[0.02] border border-white/[0.03] px-3 py-1.5 text-xs text-white/70"
+                                  >
+                                    <div>
+                                      <span className="font-medium">{r.displayName}</span>
+                                      <span className="ml-2 text-white/40 text-[10px] uppercase">Player</span>
                                     </div>
                                   </li>
                                 ))}
@@ -1550,7 +1575,7 @@ export default function AdminTournamentEditor({
                           })()}
                         </ul>
 
-                        {poolPlayers.length > 0 ? (
+                        {isAuctionFormat && poolPlayers.length > 0 ? (
                           <div className="flex flex-col gap-2 border-t border-white/[0.04] pt-3 sm:flex-row">
                             <select
                               className={`${inputClass} flex-1`}
