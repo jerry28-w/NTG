@@ -6,6 +6,8 @@ import { requireAdmin } from "@core/auth/require-admin";
 import { getTournamentDetail, getRegistrationEligibility, getValorantRegistrationProfileCard } from "@tournaments-leagues/index";
 import { serverEnv } from "@core/config/env.server";
 import { auctionLink } from "@/lib/auction-link";
+import { prisma } from "@core/database/client";
+import { resolveEffectivePublicAuction } from "@tournaments-leagues/domain/auction-hero-phase";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -35,6 +37,13 @@ export default async function TournamentDetailPage({ params }: Props) {
       ? await getValorantRegistrationProfileCard(slug, userId)
       : null;
 
+  // Fetch public status of the auction from the database
+  const [dbRow] = await prisma.$queryRawUnsafe<{ publicAuction: boolean }[]>(
+    'SELECT "publicAuction" FROM "Tournament" WHERE id = $1 LIMIT 1',
+    tournament.id
+  );
+  const publicAuction = resolveEffectivePublicAuction(dbRow?.publicAuction ?? false, tournament);
+
   // Auction handoff: routes the user to the right screen; the auction app re-checks access server-side.
   const auctionView = admin.ok
     ? "auctioneer"
@@ -44,10 +53,13 @@ export default async function TournamentDetailPage({ params }: Props) {
   const auctionEligible =
     tournament.registrationFormat === "AUCTION" &&
     !!userId &&
+    tournament.userRegistered &&
     !!serverEnv.auctionUrl &&
     !!serverEnv.auctionJwtSecret;
   // Admins can always enter; players enter only while IN_PROGRESS, see it disabled once COMPLETED.
-  const auctionHref = auctionEligible
+  // Normal registered users only see the button if publicAuction is enabled by the admin.
+  const showEnterButton = admin.ok || (auctionEligible && publicAuction);
+  const auctionHref = (showEnterButton && userId)
     ? auctionLink(tournament.id, auctionView, userId)
     : null;
   const auctionEnded = auctionEligible && !admin.ok && tournament.status === "COMPLETED";
@@ -60,26 +72,9 @@ export default async function TournamentDetailPage({ params }: Props) {
         isLoggedIn={!!userId}
         registrationPreview={registrationPreview}
         registrationProfileCard={registrationProfileCard}
+        auctionHref={auctionHref}
+        auctionEnded={auctionEnded}
       />
-      {auctionHref ? (
-        <div className="mt-16 text-center">
-          <a
-            href={auctionHref}
-            className="cta inline-flex rounded-full px-8 py-3 text-xs font-semibold uppercase tracking-[0.18em]"
-          >
-            Enter Auction
-          </a>
-        </div>
-      ) : auctionEnded ? (
-        <div className="mt-16 text-center">
-          <span
-            aria-disabled
-            className="inline-flex cursor-not-allowed rounded-full border border-white/10 bg-white/[0.03] px-8 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/40"
-          >
-            Auction Ended
-          </span>
-        </div>
-      ) : null}
       {admin.ok ? (
         <div className="mt-16 border-t border-white/[0.06] pt-8 text-center">
           <a
