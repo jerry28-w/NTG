@@ -3,11 +3,14 @@ export {
   getTournamentBySlug,
   getTournamentDetail,
   getActiveRegistrationBanner,
+  getActiveAuction,
+  getHeroCupStatus,
   listActiveRegistrationBanners,
   getLeaderboardPreview,
   getValorantRankings,
   recordMatchResult,
 } from "./application/tournament.service";
+export type { ActiveAuction, HeroCupStatus } from "./application/tournament.service";
 export {
   syncUserRank,
   syncAllLinkedPlayers,
@@ -43,6 +46,8 @@ export {
   registerStandardTeam,
   registerFifaTeam,
   getRegistrationEligibility,
+  getValorantRegistrationProfileCard,
+  switchPlayerToCaptain,
   setTournamentPlacements,
   updateTournamentAdmin,
   adminAddTournamentRegistration,

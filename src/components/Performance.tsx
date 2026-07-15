@@ -59,7 +59,7 @@ function ImageCard({
         <h3 className="mt-3 font-display text-2xl font-semibold tracking-[-0.01em] text-white sm:text-[1.65rem]">
           {title}
         </h3>
-        <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/65" style={{ fontSize: "14px" }}>
+        <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/65">
           {body}
         </p>
       </div>
@@ -158,7 +158,7 @@ function ChampionshipCard({
         <h3 className="mt-3 font-display text-2xl font-semibold tracking-[-0.01em] text-white sm:text-[1.65rem]">
           {title}
         </h3>
-        <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/65" style={{ fontSize: "14px" }}>
+        <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/65">
           {body}
         </p>
       </div>
@@ -211,7 +211,7 @@ export default function Performance() {
             <span className="text-gradient-iris">Performance.</span>
           </h2>
         </div>
-        <p className="max-w-sm text-white/55" style={{ fontSize: "16px" }}>
+        <p className="max-w-sm text-white/55">
           Championship-grade focus by day, electric atmosphere by night. Step
           in, plug up, take over.
         </p>

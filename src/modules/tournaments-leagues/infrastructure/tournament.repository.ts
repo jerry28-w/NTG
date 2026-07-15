@@ -148,7 +148,7 @@ function toRegistrationBanner(t: RegistrationBannerRow) {
 
 export class TournamentRepository {
   async listPreviews() {
-    await syncRegistrationStatus();
+    await syncRegistrationStatus().catch(() => {});
     const rows = await prisma.tournament.findMany({
       where: { status: { notIn: ["DRAFT", "CANCELLED"] } },
       orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
@@ -182,7 +182,7 @@ export class TournamentRepository {
   }
 
   async findDetailBySlug(slug: string, userId?: string): Promise<TournamentDetail | null> {
-    await syncRegistrationStatus();
+    await syncRegistrationStatus().catch(() => {});
     const t = await prisma.tournament.findUnique({
       where: { slug },
       include: {
@@ -227,8 +227,8 @@ export class TournamentRepository {
           },
         },
         registrations: userId
-          ? { where: { userId }, select: { id: true } }
-          : { select: { id: true } },
+          ? { where: { userId }, select: { id: true, participantRole: true } }
+          : { select: { id: true, participantRole: true } },
         _count: { select: { registrations: true } },
       },
     });
@@ -291,6 +291,8 @@ export class TournamentRepository {
       registrationOpen: isRegistrationOpen(t),
       registrationOpensAt: t.registrationOpensAt?.toISOString() ?? null,
       registrationClosesAt: t.registrationClosesAt?.toISOString() ?? null,
+      auctionStartsAt: t.auctionStartsAt?.toISOString() ?? null,
+      auctionEndsAt: t.auctionEndsAt?.toISOString() ?? null,
       bracketUrl: t.bracketUrl ?? null,
       rulebookUrl: t.rulebookUrl ?? null,
       teams,
@@ -334,11 +336,14 @@ export class TournamentRepository {
         })) ?? [],
       registrationCount: t._count.registrations,
       userRegistered: userId ? t.registrations.length > 0 : false,
+      userParticipantRole: userId ? (t.registrations[0]?.participantRole ?? null) : null,
+      coCaptainSlots: t.coCaptainSlots,
+      autoManageStatus: t.autoManageStatus,
     };
   }
 
   async findActiveRegistrationBanners() {
-    await syncRegistrationStatus();
+    await syncRegistrationStatus().catch(() => {});
     const candidates = await prisma.tournament.findMany({
       where: {
         status: { not: "CANCELLED" },
@@ -371,6 +376,10 @@ export class TournamentRepository {
     registrationFormat: TournamentFormat | null;
     status: TournamentStatus;
     startsAt: Date | null;
+    endsAt: Date | null;
+    registrationOpensAt: Date | null;
+    registrationClosesAt: Date | null;
+    auctionStartsAt?: Date | null;
     registrationUrl: string | null;
     format: string | null;
     bracketUrl: string | null;
@@ -397,6 +406,10 @@ export class TournamentRepository {
       registrationFormat: t.registrationFormat,
       status: t.status,
       startsAt: t.startsAt?.toISOString() ?? null,
+      endsAt: t.endsAt?.toISOString() ?? null,
+      registrationOpensAt: t.registrationOpensAt?.toISOString() ?? null,
+      registrationClosesAt: t.registrationClosesAt?.toISOString() ?? null,
+      auctionStartsAt: t.auctionStartsAt?.toISOString() ?? null,
       registrationUrl: t.registrationUrl,
       championName,
       bracketUrl: t.bracketUrl,

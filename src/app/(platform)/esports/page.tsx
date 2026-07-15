@@ -4,8 +4,9 @@ import { getPlayerGameProfile } from "@auth-membership/index";
 import { listActiveRegistrationBanners, listTournamentPreviews, getValorantRankings } from "@tournaments-leagues/index";
 import { prisma } from "@core/database/client";
 import { rankIconUrl } from "@/lib/valorant-rank";
-import { formatMonthYear, sortTournamentsByHostingOrder, sortTournamentsByHostingOrderNewestFirst, toTournamentDisplay } from "@/lib/tournament-display";
+import { sortTournamentsByHostingOrder, sortTournamentsByHostingOrderNewestFirst } from "@/lib/tournament-display";
 import EsportsRegistrationSlides from "@/components/platform/EsportsRegistrationSlides";
+import TournamentVaultSection from "@/components/tournaments/TournamentVaultSection";
 
 export const dynamic = "force-dynamic";
 
@@ -185,10 +186,10 @@ export default async function EsportsHubPage() {
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-3">
-              <Link href="/login" className="rounded-full bg-white px-5 py-3 text-xs font-bold uppercase tracking-wider text-black transition-transform hover:scale-[1.03] active:scale-[0.98]">
+              <Link href="/login?callbackUrl=%2Fesports" className="rounded-full bg-white px-5 py-3 text-xs font-bold uppercase tracking-wider text-black transition-transform hover:scale-[1.03] active:scale-[0.98]">
                 Sign In
               </Link>
-              <Link href="/signup" className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all hover:bg-white/10 hover:border-white/20 active:scale-[0.98]">
+              <Link href="/signup?callbackUrl=%2Fesports" className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all hover:bg-white/10 hover:border-white/20 active:scale-[0.98]">
                 Create Account
               </Link>
             </div>
@@ -342,75 +343,16 @@ export default async function EsportsHubPage() {
         </Link>
       )}
 
-      {/* Timeline Schedule Section */}
-      {scheduleTournaments.length > 0 && (
-        <div className="rounded-[2rem] border border-white/[0.06] bg-[#0A0A0A]/40 p-6 backdrop-blur-md sm:p-8">
-          <div className="mb-8">
-            <h2 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Competitive Schedule</h2>
-            <p className="mt-1 text-sm text-white/40">Keep track of ongoing, upcoming, and completed tournament stages</p>
-          </div>
-
-          <div className="relative border-l border-white/10 pl-6 space-y-8 ml-2">
-            {scheduleTournaments.map((t) => {
-              const display = toTournamentDisplay(t);
-              let badgeColor = "text-white/40 bg-white/5 border-white/10";
-              let pingColor = "";
-              if (t.status === "IN_PROGRESS") {
-                badgeColor = "text-rose-400 bg-rose-500/10 border-rose-500/20";
-                pingColor = "bg-rose-500";
-              } else if (t.status === "REGISTRATION_OPEN") {
-                badgeColor = "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-                pingColor = "bg-emerald-500";
-              } else if (t.status === "UPCOMING") {
-                badgeColor = "text-cyan-400 bg-cyan-500/10 border-cyan-500/20";
-              } else if (t.status === "COMPLETED") {
-                badgeColor = "text-white/40 bg-white/5 border-white/10";
-              }
-
-              return (
-                <div key={t.id} className="relative group">
-                  <span className="absolute -left-[31px] top-1.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#0F0F0F] border-2 border-white/10 group-hover:border-white/30 transition-colors">
-                    {pingColor && (
-                      <span className="relative flex h-2 w-2">
-                        <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${pingColor}`} />
-                        <span className={`relative inline-flex h-2 w-2 rounded-full ${pingColor}`} />
-                      </span>
-                    )}
-                  </span>
-
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${badgeColor}`}>
-                          {t.status.replace("_", " ")}
-                        </span>
-                        {display.game && (
-                          <span className="text-[10px] font-medium text-white/30 uppercase tracking-widest">
-                            {display.game}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="mt-2 font-display text-lg font-bold text-white group-hover:text-[var(--color-brand)] transition-colors">
-                        {t.name}
-                      </h3>
-                      <p className="mt-1 text-xs text-white/40">
-                        {formatMonthYear(t.startsAt)}
-                      </p>
-                    </div>
-
-                    <div className="shrink-0">
-                      <Link href={`/esports/tournaments/${t.slug}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/60 hover:text-white transition-colors">
-                        Details
-                        <span>→</span>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      {/* Cups we've hosted section */}
+      <div className="rounded-[2rem] border border-white/[0.06] bg-[#0A0A0A]/40 p-6 backdrop-blur-md sm:p-8">
+        <div className="mb-8">
+          <h2 className="font-display text-2xl font-black tracking-tight text-transparent bg-gradient-to-r from-white via-white to-white/70 bg-clip-text sm:text-3xl">
+            Cups we&apos;ve <span className="font-display italic font-light text-white/55">hosted.</span>
+          </h2>
+          <p className="mt-1 ml-0.5 text-sm text-white/40">Our latest community cups. Every champion etched into the lounge&apos;s history.</p>
         </div>
-      )}
+        <TournamentVaultSection hideHeader={true} />
+      </div>
 
 
       {/* Glassmorphic Navigation Cards — moved to bottom */}
@@ -454,20 +396,6 @@ export default async function EsportsHubPage() {
           <div className="relative z-10 mt-auto pt-8">
             <h3 className="font-display text-2xl font-bold tracking-wide text-white">Valorant Rankings</h3>
             <p className="mt-2 text-sm font-medium leading-relaxed text-white/50">Who runs Mangaluru? Live competitive RR from NTG players with linked Riot IDs.</p>
-          </div>
-        </Link>
-
-        <Link href="/gallery" prefetch={true} className="group relative flex min-h-[14rem] flex-col overflow-hidden rounded-[1.5rem] border border-white/[0.08] bg-[#0D0D0D]/60 p-8 shadow-lg backdrop-blur-md transition-all duration-500 hover:-translate-y-1 hover:border-[#F43F5E]/50 hover:bg-[#170c0e]/80 hover:shadow-[0_0_40px_rgba(244,63,94,0.15)] active:scale-[0.98]">
-          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.02] to-white/[0.05] opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-          <div className="absolute right-0 top-0 h-32 w-32 -translate-y-8 translate-x-8 rounded-full bg-[#F43F5E]/10 blur-[50px] transition-all group-hover:bg-[#F43F5E]/20" />
-          <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F43F5E]/10 text-[#F43F5E] ring-1 ring-inset ring-[#F43F5E]/30">
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div className="relative z-10 mt-auto pt-8">
-            <h3 className="font-display text-2xl font-bold tracking-wide text-white">Moments</h3>
-            <p className="mt-2 text-sm font-medium leading-relaxed text-white/50">Highlights, finals nights, and the vibe from our live events.</p>
           </div>
         </Link>
       </div>

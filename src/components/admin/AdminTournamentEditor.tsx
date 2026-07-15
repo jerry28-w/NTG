@@ -59,6 +59,17 @@ type TournamentData = {
   game: string;
   gameLabel: string | null;
   registrationFormat: string | null;
+  format: string | null;
+  coCaptainSlots: number;
+  startingBudget: number;
+  rosterSize: number;
+  minBidIncrement: number;
+  auctionStartsAt: string | null;
+  auctionEndsAt: string | null;
+  groupCount: number | null;
+  teamsPerGroup: number | null;
+  advancePerGroup: number | null;
+  rankPoints: { rank: string; floor: number }[] | null;
   seasonId: string | null;
   status: string;
   description: string | null;
@@ -77,6 +88,7 @@ type TournamentData = {
   hideAfter: string | null;
   bracketUrl: string | null;
   rulebookUrl: string | null;
+  publicAuction?: boolean;
   tournamentTeams: Team[];
   registrations: RegistrationRow[];
   poolPlayers: PoolPlayer[];
@@ -110,6 +122,30 @@ const checkboxLabelClass =
 
 const SUPPORTS_FORMAT = ["VALORANT", "CS2"];
 
+const DEFAULT_VALORANT_RANK_POINTS: { rank: string; floor: number }[] = [
+  { rank: "Immortal", floor: 12 },
+  { rank: "Ascendant", floor: 10 },
+  { rank: "Diamond", floor: 8 },
+  { rank: "Platinum", floor: 6 },
+  { rank: "Gold", floor: 4 },
+  { rank: "Silver", floor: 2 },
+  { rank: "Bronze", floor: 1 },
+  { rank: "Iron", floor: 1 },
+];
+
+/** Tier accent dots for the rank-points editor. */
+const RANK_DOT: Record<string, string> = {
+  Immortal: "#b45e6b",
+  Ascendant: "#22c55e",
+  Diamond: "#b794f4",
+  Platinum: "#5eead4",
+  Gold: "#f6c177",
+  Silver: "#cbd5e1",
+  Bronze: "#b08d57",
+  Iron: "#8a8f98",
+  Unranked: "#6b7280",
+};
+
 type CupFields = Omit<
   TournamentData,
   "slug" | "tournamentTeams" | "registrations" | "poolPlayers" | "placements" | "hideAfter"
@@ -141,6 +177,18 @@ function getSavePayload(form: TournamentData) {
     registrationFormat: SUPPORTS_FORMAT.includes(form.game)
       ? (form.registrationFormat ?? "AUCTION")
       : null,
+    format: form.format || null,
+    coCaptainSlots: form.coCaptainSlots,
+    startingBudget: form.startingBudget,
+    rosterSize: form.rosterSize,
+    minBidIncrement: form.minBidIncrement,
+    auctionStartsAt: form.auctionStartsAt || null,
+    auctionEndsAt: form.auctionEndsAt || null,
+    groupCount: form.groupCount,
+    teamsPerGroup: form.teamsPerGroup,
+    advancePerGroup: form.advancePerGroup,
+    rankPoints: form.rankPoints,
+    publicAuction: form.publicAuction ?? false,
   };
 }
 
@@ -164,9 +212,11 @@ async function readJsonResponse(res: Response): Promise<Record<string, unknown>>
 export default function AdminTournamentEditor({
   initial,
   seasons,
+  auctionHref,
 }: {
   initial: TournamentData;
   seasons: { id: string; label: string }[];
+  auctionHref?: string | null;
 }) {
   const router = useRouter();
   const { openDeleteConfirm, DeleteConfirmDialog } = useAdminDeleteConfirm();
@@ -179,7 +229,7 @@ export default function AdminTournamentEditor({
   const tournamentTeams = initial.tournamentTeams;
   const poolPlayers = initial.poolPlayers;
   const [activeTab, setActiveTab] = useState<
-    "general" | "media" | "prizes" | "standings" | "registrations" | "teams"
+    "general" | "auction" | "media" | "prizes" | "standings" | "registrations" | "teams"
   >("general");
   const initialMvpRole = initial.placements.find((p) => p.role === "MVP");
   const initialMvpUser = initialMvpRole?.user;
@@ -226,7 +276,7 @@ export default function AdminTournamentEditor({
   } | null>(null);
   const [addRole, setAddRole] = useState<"PLAYER" | "CAPTAIN">("PLAYER");
   const [addTeamName, setAddTeamName] = useState("");
-  const [addCoCaptainUsername, setAddCoCaptainUsername] = useState("");
+  const [addCoCaptainUsernames, setAddCoCaptainUsernames] = useState(["", "", "", ""]);
   const [addMemberUsernames, setAddMemberUsernames] = useState(["", "", "", ""]);
   const [addingMember, setAddingMember] = useState(false);
 
@@ -250,11 +300,14 @@ export default function AdminTournamentEditor({
     if (
       form.autoManageStatus &&
       form.registrationOpensAt &&
-      form.startsAt
+      (isAuctionFormat ? form.auctionStartsAt : form.startsAt)
     ) {
       const now = Date.now();
       const opens = new Date(form.registrationOpensAt).getTime();
-      const closes = new Date(form.startsAt).getTime() - 60_000;
+      const closeAnchor = isAuctionFormat
+        ? new Date(form.auctionStartsAt!).getTime()
+        : new Date(form.startsAt!).getTime();
+      const closes = closeAnchor - 60_000;
       return now >= opens && now < closes;
     }
     return form.status === "REGISTRATION_OPEN";
@@ -338,8 +391,10 @@ export default function AdminTournamentEditor({
           userId: selectedMember.id,
           participantRole,
           teamName: participantRole === "CAPTAIN" ? addTeamName.trim() : undefined,
-          coCaptainUsername:
-            participantRole === "CAPTAIN" && isAuctionFormat ? addCoCaptainUsername.trim() : undefined,
+          coCaptainUsernames:
+            participantRole === "CAPTAIN" && isAuctionFormat && form.coCaptainSlots > 0
+              ? addCoCaptainUsernames.slice(0, form.coCaptainSlots).map((u) => u.trim())
+              : undefined,
           memberUsernames:
             participantRole === "CAPTAIN" && isStandardFormat
               ? addMemberUsernames.map((u) => u.trim())
@@ -355,7 +410,7 @@ export default function AdminTournamentEditor({
       setMemberSearch("");
       setMemberResults([]);
       setAddTeamName("");
-      setAddCoCaptainUsername("");
+      setAddCoCaptainUsernames(["", "", "", ""]);
       setAddMemberUsernames(["", "", "", ""]);
       setAddRole("PLAYER");
       setMessage("Member added to cup.");
@@ -414,6 +469,18 @@ export default function AdminTournamentEditor({
     return ok;
   }
 
+  async function createAuction() {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/admin/tournaments/${form.slug}/auction`, { method: "POST" });
+      const data = await readJsonResponse(res);
+      setMessage(res.ok ? "Auction created." : String(data.error ?? "Failed to create auction."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function saveAll() {
     setLoading(true);
     setMessage(null);
@@ -424,15 +491,46 @@ export default function AdminTournamentEditor({
         setLoading(false);
         return;
       }
-      const opens = new Date(form.registrationOpensAt).getTime();
-      const closes = new Date(form.startsAt).getTime() - 60_000;
-      const ends = new Date(form.endsAt).getTime();
-      if (opens >= closes) {
-        setMessage("Registration must open before it closes (1 minute before cup start).");
+      if (isAuctionFormat && (!form.auctionStartsAt || !form.auctionEndsAt)) {
+        setMessage("Auction cups require auction start and auction end dates.");
         setLoading(false);
         return;
       }
-      if (closes >= ends) {
+      const opens = new Date(form.registrationOpensAt).getTime();
+      const closeAnchor = isAuctionFormat
+        ? new Date(form.auctionStartsAt!).getTime()
+        : new Date(form.startsAt).getTime();
+      const closes = closeAnchor - 60_000;
+      const ends = new Date(form.endsAt).getTime();
+      const auctionEnd = isAuctionFormat ? new Date(form.auctionEndsAt!).getTime() : null;
+      const starts = new Date(form.startsAt).getTime();
+      if (opens >= closes) {
+        setMessage(
+          isAuctionFormat
+            ? "Registration must open before it closes (1 minute before auction starts)."
+            : "Registration must open before it closes (1 minute before cup start).",
+        );
+        setLoading(false);
+        return;
+      }
+      if (isAuctionFormat && auctionEnd !== null) {
+        if (closes >= new Date(form.auctionStartsAt!).getTime()) {
+          setMessage("Auction must start after registration closes.");
+          setLoading(false);
+          return;
+        }
+        if (new Date(form.auctionStartsAt!).getTime() >= auctionEnd) {
+          setMessage("Auction end must be after auction start.");
+          setLoading(false);
+          return;
+        }
+        if (auctionEnd >= starts) {
+          setMessage("Cup start must be after the auction ends.");
+          setLoading(false);
+          return;
+        }
+      }
+      if (isAuctionFormat ? starts >= ends : closes >= ends) {
         setMessage("Cup end must be after cup start.");
         setLoading(false);
         return;
@@ -464,9 +562,18 @@ export default function AdminTournamentEditor({
           hideAfter: null,
           bracketUrl: emptyToNull(form.bracketUrl),
           rulebookUrl: emptyToNull(form.rulebookUrl),
-          registrationFormat: SUPPORTS_FORMAT.includes(form.game)
-            ? (form.registrationFormat ?? "AUCTION")
-            : null,
+          registrationFormat: SUPPORTS_FORMAT.includes(form.game) ? (form.registrationFormat ?? "AUCTION") : null,
+          format: form.format || null,
+          coCaptainSlots: form.coCaptainSlots,
+          startingBudget: form.startingBudget,
+          rosterSize: form.rosterSize,
+          minBidIncrement: form.minBidIncrement,
+          auctionStartsAt: form.auctionStartsAt || null,
+          auctionEndsAt: form.auctionEndsAt || null,
+          groupCount: form.groupCount,
+          teamsPerGroup: form.teamsPerGroup,
+          advancePerGroup: form.advancePerGroup,
+          rankPoints: form.rankPoints,
         }),
       });
       const data = await readJsonResponse(res);
@@ -682,7 +789,7 @@ export default function AdminTournamentEditor({
 
   const editorTabs = [
     {
-      id: "general",
+      id: "general" as const,
       label: "General",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -690,8 +797,21 @@ export default function AdminTournamentEditor({
         </svg>
       ),
     },
+    ...(form.registrationFormat === "AUCTION"
+      ? [
+          {
+            id: "auction" as const,
+            label: "Auction",
+            icon: (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+              </svg>
+            ),
+          },
+        ]
+      : []),
     {
-      id: "media",
+      id: "media" as const,
       label: "Media",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -700,7 +820,7 @@ export default function AdminTournamentEditor({
       ),
     },
     {
-      id: "prizes",
+      id: "prizes" as const,
       label: "Prizes",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -709,7 +829,7 @@ export default function AdminTournamentEditor({
       ),
     },
     {
-      id: "standings",
+      id: "standings" as const,
       label: "Results & MVP",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -718,7 +838,7 @@ export default function AdminTournamentEditor({
       ),
     },
     {
-      id: "registrations",
+      id: "registrations" as const,
       label: "Registrations",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -727,7 +847,7 @@ export default function AdminTournamentEditor({
       ),
     },
     {
-      id: "teams",
+      id: "teams" as const,
       label: "Teams",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -900,7 +1020,7 @@ export default function AdminTournamentEditor({
                       }`}
                     >
                       <p className="text-sm font-semibold">Auction Draft</p>
-                      <p className="mt-0.5 text-[10px] leading-relaxed text-white/40">Captains register team name + co-captain. Players join the pool. Admin assigns after auction.</p>
+                      <p className="mt-0.5 text-[10px] leading-relaxed text-white/40">Captains register a team name{form.coCaptainSlots > 0 ? ` and up to ${form.coCaptainSlots} co-captain${form.coCaptainSlots > 1 ? "s" : ""}` : ""}. Players join the pool. Admin assigns after auction.</p>
                     </button>
                     <button
                       type="button"
@@ -995,7 +1115,9 @@ export default function AdminTournamentEditor({
                       </a>{" "}
                       and the cup register form.
                       {form.autoManageStatus
-                        ? " Auto-manage will close registration 1 minute before cup start."
+                        ? isAuctionFormat
+                          ? " Auto-manage will close registration 1 minute before auction starts."
+                          : " Auto-manage will close registration 1 minute before cup start."
                         : " Change status manually when you want to close it."}
                     </p>
                   ) : form.autoManageStatus ? (
@@ -1058,7 +1180,9 @@ export default function AdminTournamentEditor({
                     }
                   />
                   <p className="text-xs text-white/35">
-                    Registration closes automatically 1 minute before cup start. No separate end date needed.
+                    {isAuctionFormat
+                      ? "Registration closes automatically 1 minute before auction starts. No separate end date needed."
+                      : "Registration closes automatically 1 minute before cup start. No separate end date needed."}
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -1089,6 +1213,232 @@ export default function AdminTournamentEditor({
                     }
                   />
                 </div>
+                {form.registrationFormat === "AUCTION" ? (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">Auction Starts</label>
+                      <input
+                        type="datetime-local"
+                        className={inputClass}
+                        value={toLocalDatetime(form.auctionStartsAt)}
+                        onChange={(e) =>
+                          setForm({ ...form, auctionStartsAt: e.target.value ? new Date(e.target.value).toISOString() : null })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">Auction Ends</label>
+                      <input
+                        type="datetime-local"
+                        className={inputClass}
+                        value={toLocalDatetime(form.auctionEndsAt)}
+                        onChange={(e) =>
+                          setForm({ ...form, auctionEndsAt: e.target.value ? new Date(e.target.value).toISOString() : null })
+                        }
+                      />
+                    </div>
+                    <p className="text-xs text-white/35 sm:col-span-2">
+                      The &quot;Auction is live&quot; countdown banner displays on the homepage while the auction is live.
+                    </p>
+                  </>
+                ) : null}
+              </div>
+            </AdminSection>
+          </div>
+        )}
+
+        {activeTab === "auction" && form.registrationFormat === "AUCTION" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <AdminSection
+              title="Auction Draft Setup"
+              showsOn="Auction economy and settings used by the bidding platform"
+            >
+              <div className="mt-2 space-y-4 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.03] p-4">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-cyan-200/80">Auction Draft Settings</p>
+                <p className="-mt-2 text-[10px] leading-relaxed text-white/40">
+                  Configure budget, roster limits, and minimum bidding increments. Rank point values are set inside the auction app. Save changes to apply.
+                </p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">Co-Captain Slots</label>
+                    <select
+                      className={inputClass}
+                      value={form.coCaptainSlots}
+                      onChange={(e) => setForm({ ...form, coCaptainSlots: Number(e.target.value) })}
+                    >
+                      {[0, 1, 2, 3, 4].map((n) => (
+                        <option key={n} value={n} className="bg-[#0a1020]">
+                          {n === 0 ? "0 — Captain only" : `${n} co-captain${n > 1 ? "s" : ""}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                   <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">Starting Budget</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className={inputClass}
+                      value={form.startingBudget === 0 ? "" : form.startingBudget}
+                      placeholder="0"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setForm({ ...form, startingBudget: val === "" ? 0 : Number(val) });
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">Roster Size (picks)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      className={inputClass}
+                      value={form.rosterSize === 0 ? "" : form.rosterSize}
+                      placeholder="0"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setForm({ ...form, rosterSize: val === "" ? 0 : Number(val) });
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">Min Bid Increment</label>
+                    <input
+                      type="number"
+                      min={1}
+                      className={inputClass}
+                      value={form.minBidIncrement === 0 ? "" : form.minBidIncrement}
+                      placeholder="0"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setForm({ ...form, minBidIncrement: val === "" ? 0 : Number(val) });
+                      }}
+                    />
+                  </div>
+                </div>
+                {form.game === "VALORANT" && (
+                  <div className="space-y-3 border-t border-white/[0.04] pt-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-white/55">Rank Points</label>
+                        <p className="mt-0.5 text-[10px] leading-relaxed text-white/35">
+                          Base points every player of a rank starts at. Sent to the auction app on Create — still editable there.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, rankPoints: DEFAULT_VALORANT_RANK_POINTS })}
+                        className="shrink-0 rounded-full border border-white/10 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-white/50 transition-colors hover:border-cyan-400/40 hover:text-cyan-200"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                      {(form.rankPoints ?? DEFAULT_VALORANT_RANK_POINTS).map((row, i) => (
+                        <div
+                          key={row.rank}
+                          className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-2.5 transition-colors focus-within:border-cyan-400/40 focus-within:bg-cyan-500/[0.04]"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full" style={{ background: RANK_DOT[row.rank] ?? "#6b7280" }} />
+                            <span className="text-[11px] font-medium text-white/70">{row.rank}</span>
+                          </div>
+                          <input
+                            type="number"
+                            min={0}
+                            aria-label={`${row.rank} points`}
+                            value={row.floor === 0 ? "" : row.floor}
+                            placeholder="0"
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const num = val === "" ? 0 : Number(val);
+                              const base = form.rankPoints ?? DEFAULT_VALORANT_RANK_POINTS;
+                              const next = base.map((r, j) => (j === i ? { ...r, floor: num } : r));
+                              setForm({ ...form, rankPoints: next });
+                            }}
+                            className="mt-2 w-full rounded-md border border-white/10 bg-[#0a1020]/60 px-2.5 py-1.5 text-sm font-mono tabular-nums text-white focus:border-cyan-500/40 focus:outline-none"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="border-t border-white/[0.04] pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-xs font-semibold text-white/80">Initialize Auction Instance</h4>
+                    <p className="text-[10px] text-white/40 mt-0.5">Sends current configurations to register the cup in the auction platform.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={createAuction}
+                    disabled={loading}
+                    className="cta inline-flex rounded-full px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] disabled:opacity-50"
+                  >
+                    {loading ? "Sending..." : "Create / Reset Auction"}
+                  </button>
+                </div>
+
+                {/* Public Auction Visibility Toggle */}
+                {(() => {
+                  const autoManaged = !!(form.autoManageStatus && form.auctionStartsAt && form.auctionEndsAt);
+                  return (
+                    <div className="border-t border-white/[0.04] pt-4 flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-semibold text-white/80">Public Auction Visibility</h4>
+                        <p className="text-[10px] text-white/40 mt-0.5">
+                          When enabled, the "Enter Auction" button becomes visible to all registered users on the tournament details page.
+                        </p>
+                        {autoManaged && (
+                          <p className="text-[10px] text-cyan-300/70 mt-1">
+                            Auto-managed by the auction schedule — on automatically during the live window, off otherwise.
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={autoManaged}
+                        onClick={() => {
+                          const nextVal = !form.publicAuction;
+                          setForm({ ...form, publicAuction: nextVal });
+                          // Save immediately when toggled
+                          fetch(`/api/admin/tournaments/${form.slug}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ publicAuction: nextVal }),
+                          });
+                        }}
+                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          autoManaged ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                        } ${form.publicAuction ? "bg-cyan-500" : "bg-white/[0.12]"}`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            form.publicAuction ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* Direct Link to Auction Site */}
+                {auctionHref && (
+                  <div className="border-t border-white/[0.04] pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-xs font-semibold text-white/80">Direct Link to Auction Site</h4>
+                      <p className="text-[10px] text-white/40 mt-0.5">Open the external auction interface to manage live bidding, teams, and drafts.</p>
+                    </div>
+                    <a
+                      href={auctionHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/10 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-200 transition-colors hover:bg-cyan-500/20"
+                    >
+                      Go to Auction Site →
+                    </a>
+                  </div>
+                )}
               </div>
             </AdminSection>
           </div>
@@ -1142,7 +1492,11 @@ export default function AdminTournamentEditor({
                     type="number"
                     className={inputClass}
                     value={form.prizePool ?? ""}
-                    onChange={(e) => setForm({ ...form, prizePool: e.target.value || null })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const cleaned = (val.length > 1 && val.startsWith("0")) ? val.replace(/^0+/, "") : val;
+                      setForm({ ...form, prizePool: cleaned || null });
+                    }}
                     placeholder="e.g. 15000"
                   />
                 </div>
@@ -1184,7 +1538,11 @@ export default function AdminTournamentEditor({
                             type="number"
                             className={`${inputClass} pl-7`}
                             value={row.amount}
-                            onChange={(e) => updateSplit(i, "amount", e.target.value)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const cleaned = (val.length > 1 && val.startsWith("0")) ? val.replace(/^0+/, "") : val;
+                              updateSplit(i, "amount", cleaned);
+                            }}
                             placeholder="Amount"
                           />
                         </div>
@@ -1408,17 +1766,28 @@ export default function AdminTournamentEditor({
                               ))}
                             </div>
                           </>
-                        ) : (
+                        ) : form.coCaptainSlots > 0 ? (
                           <>
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">Co-captain username</label>
-                            <input
-                              className={inputClass}
-                              value={addCoCaptainUsername}
-                              onChange={(e) => setAddCoCaptainUsername(e.target.value)}
-                              placeholder="NTG username"
-                            />
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">
+                              Co-captain username{form.coCaptainSlots > 1 ? "s" : ""}
+                            </label>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {Array.from({ length: form.coCaptainSlots }, (_, index) => (
+                                <input
+                                  key={index}
+                                  className={inputClass}
+                                  value={addCoCaptainUsernames[index] ?? ""}
+                                  onChange={(e) => {
+                                    const next = [...addCoCaptainUsernames];
+                                    next[index] = e.target.value;
+                                    setAddCoCaptainUsernames(next);
+                                  }}
+                                  placeholder={`Co-captain ${index + 1}`}
+                                />
+                              ))}
+                            </div>
                           </>
-                        )}
+                        ) : null}
                       </div>
                     </>
                   ) : null}
@@ -1431,7 +1800,11 @@ export default function AdminTournamentEditor({
                     !selectedMember ||
                     (addRole === "CAPTAIN" &&
                       (!addTeamName.trim() ||
-                        (isAuctionFormat && !addCoCaptainUsername.trim()) ||
+                        (isAuctionFormat &&
+                          form.coCaptainSlots > 0 &&
+                          !addCoCaptainUsernames
+                            .slice(0, form.coCaptainSlots)
+                            .every((u) => u.trim().length >= 2)) ||
                         (isStandardFormat && !addMemberUsernames.every((u) => u.trim().length >= 2))))
                   }
                   className="rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
@@ -1550,7 +1923,11 @@ export default function AdminTournamentEditor({
                   <p className="text-xs text-white/50">
                     {isAuctionFormat ? (
                       <>
-                        <span className="font-semibold text-white/70">Auction rosters:</span> captains register with a co-captain at signup.
+                        <span className="font-semibold text-white/70">Auction rosters:</span> captains register with a team name
+                        {form.coCaptainSlots > 0
+                          ? ` and ${form.coCaptainSlots} co-captain${form.coCaptainSlots > 1 ? "s" : ""}`
+                          : ""}{" "}
+                        at signup.
                         After the draft, assign players from the pool to each team below.
                       </>
                     ) : isStandardFormat ? (
@@ -1617,7 +1994,9 @@ export default function AdminTournamentEditor({
                               return (
                                 <p className="text-xs text-white/30 italic">
                                   {isAuctionFormat
-                                    ? "Captain and co-captain appear here after team registration."
+                                    ? form.coCaptainSlots > 0
+                                      ? "Captain and co-captain(s) appear here after team registration."
+                                      : "Captain appears here after team registration."
                                     : "Team roster appears here after registration."}
                                 </p>
                               );

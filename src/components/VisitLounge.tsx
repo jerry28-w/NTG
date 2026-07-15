@@ -33,7 +33,7 @@ const contacts = [
 
 export default function VisitLounge() {
   return (
-    <section id="visit" className="relative mx-auto w-full max-w-[var(--container)] scroll-mt-28 px-[clamp(1.25rem,_3vw,_4rem)] py-24 sm:py-32">
+    <section id="visit" className="relative mx-auto w-full max-w-7xl scroll-mt-28 px-5 py-24 sm:py-32">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -63,7 +63,7 @@ export default function VisitLounge() {
             <h3 className="font-display text-3xl font-semibold tracking-[-0.01em] text-white sm:text-4xl">
               {brand.name}.
             </h3>
-            <p className="mt-3 max-w-sm text-white/55" style={{ fontSize: "16px" }}>
+            <p className="mt-3 max-w-sm text-white/55">
               {brand.tagline}. Drop by, plug up, play your sharpest. Just crash the lounge, gather your squad, and get playing.
             </p>
 

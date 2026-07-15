@@ -9,6 +9,10 @@ import {
 import { serverEnv } from "@core/config/env.server";
 import { displayCs2Ranks, displayValorantRegistration } from "@auth-membership/domain/game-profile";
 import type { PrizeSplitRow } from "@core/contracts";
+import { prisma } from "@core/database/client";
+import { getSession } from "@core/auth/session";
+import { auctionLink } from "@/lib/auction-link";
+import { resolveEffectivePublicAuction } from "@tournaments-leagues/domain/auction-hero-phase";
 
 export const metadata = { title: "Edit Cup" };
 
@@ -23,10 +27,17 @@ export default async function AdminTournamentEditPage({ params }: Props) {
   if (!serverEnv.databaseUrl) notFound();
 
   const { slug } = await params;
-  const [t, poolPlayers, seasons] = await Promise.all([
+  const session = await getSession();
+  const userId = session?.user?.id;
+
+  const [t, poolPlayers, seasons, [row]] = await Promise.all([
     getTournamentAdmin(slug),
     listUnassignedPlayerRegistrations(slug),
     listSeasonsAdmin(),
+    prisma.$queryRawUnsafe<{ publicAuction: boolean }[]>(
+      'SELECT "publicAuction" FROM "Tournament" WHERE slug = $1 LIMIT 1',
+      slug
+    ),
   ]);
   if (!t) notFound();
 
@@ -52,6 +63,18 @@ export default async function AdminTournamentEditPage({ params }: Props) {
     autoManageStatus: t.autoManageStatus,
     hideAfter: t.hideAfter?.toISOString() ?? null,
     registrationFormat: (t.registrationFormat as string | null) ?? null,
+    format: (t.format as string | null) ?? null,
+    coCaptainSlots: t.coCaptainSlots,
+    startingBudget: t.startingBudget,
+    rosterSize: t.rosterSize,
+    minBidIncrement: t.minBidIncrement,
+    auctionStartsAt: t.auctionStartsAt?.toISOString() ?? null,
+    auctionEndsAt: t.auctionEndsAt?.toISOString() ?? null,
+    groupCount: t.groupCount,
+    teamsPerGroup: t.teamsPerGroup,
+    advancePerGroup: t.advancePerGroup,
+    publicAuction: resolveEffectivePublicAuction(row?.publicAuction ?? false, t),
+    rankPoints: (t.rankPoints as { rank: string; floor: number }[] | null) ?? null,
     bracketUrl: t.bracketUrl,
     rulebookUrl: t.rulebookUrl,
     tournamentTeams: t.tournamentTeams.map((team) => ({
@@ -124,7 +147,11 @@ export default async function AdminTournamentEditPage({ params }: Props) {
     })),
   };
 
+  const auctionHref = userId && t.registrationFormat === "AUCTION" && serverEnv.auctionUrl && serverEnv.auctionJwtSecret
+    ? auctionLink(t.id, "auctioneer", userId)
+    : null;
+
   return (
-    <AdminTournamentEditor initial={initial} seasons={seasons} />
+    <AdminTournamentEditor initial={initial} seasons={seasons} auctionHref={auctionHref} />
   );
 }

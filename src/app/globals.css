@@ -22,7 +22,6 @@
 
 :root {
   color-scheme: dark;
-
   /* On mobile and tablet, use full viewport width */
   --container: 100%;
 
@@ -374,26 +373,3 @@ header[data-site-nav] {
   background: rgba(168, 85, 247, 0.5);
   color: #fff;
 }
-
-/* ---------- Hero word-rise (used for gradient text that can't use SplitText) ---------- */
-@keyframes hero-rise {
-  from {
-    opacity: 0;
-    transform: translateY(105%);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/*
- * Only animate on desktop (≥1024px). On mobile/tablet the span is visible
- * immediately — no opacity:0 flash, no layout shift.
- */
-@media (min-width: 1024px) {
-  .hero-word-rise {
-    animation: hero-rise 0.68s cubic-bezier(0.22, 1, 0.36, 1) 0.38s both;
-  }
-}
-

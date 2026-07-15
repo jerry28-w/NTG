@@ -190,8 +190,8 @@ export default function ReviewCarousel({ className = "", delay = 0, variants }: 
             <>
               <Avatar name={active.author} />
               <div className="leading-tight">
-                <p className="text-sm font-medium text-white" style={{ fontSize: "14px" }}>{active.author}</p>
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45" style={{ fontSize: "11px" }}>
+                <p className="text-sm font-medium text-white">{active.author}</p>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
                   {active.relativeTime || "Google Review"}
                 </p>
               </div>

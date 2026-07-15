@@ -20,6 +20,9 @@ function minimalDetail(overrides: Partial<TournamentDetail> = {}): TournamentDet
     registrationOpen: true,
     registrationOpensAt: null,
     registrationClosesAt: null,
+    auctionStartsAt: null,
+    auctionEndsAt: null,
+    autoManageStatus: false,
     bracketUrl: null,
     rulebookUrl: null,
     teams: [],
@@ -28,6 +31,8 @@ function minimalDetail(overrides: Partial<TournamentDetail> = {}): TournamentDet
     matches: [],
     registrationCount: 0,
     userRegistered: false,
+    userParticipantRole: null,
+    coCaptainSlots: 0,
     ...overrides,
   };
 }

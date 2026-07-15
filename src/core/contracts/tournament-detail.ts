@@ -39,6 +39,8 @@ export type TournamentDetail = {
   registrationOpen: boolean;
   registrationOpensAt: string | null;
   registrationClosesAt: string | null;
+  auctionStartsAt: string | null;
+  auctionEndsAt: string | null;
   bracketUrl: string | null;
   rulebookUrl: string | null;
   teams: string[];
@@ -47,6 +49,9 @@ export type TournamentDetail = {
   matches: TournamentMatchView[];
   registrationCount: number;
   userRegistered: boolean;
+  userParticipantRole: "CAPTAIN" | "CO_CAPTAIN" | "PLAYER" | null;
+  coCaptainSlots: number;
+  autoManageStatus: boolean;
 };
 
 export type PrizeSplitRow = {
