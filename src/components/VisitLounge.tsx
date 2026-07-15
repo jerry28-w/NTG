@@ -108,23 +108,30 @@ export default function VisitLounge() {
             • No backdrop-blur or animate-ping below `md` (GPU-cheap)
           */}
           <div className="group relative overflow-hidden rounded-3xl border border-[var(--color-brand)]/25 bg-[#060a14] [contain:layout_paint] [content-visibility:auto] md:shadow-[0_0_40px_rgba(94,234,212,0.08),inset_0_0_60px_rgba(124,58,237,0.05)]" style={{ minHeight: "clamp(17.5rem, 28vw, 36.25rem)" }} >
-            <img
-              src="/images/lounge-map@2x.png"
-              srcSet="/images/lounge-map@2x.png 2x, /images/lounge-map.png 1x"
-              alt="Map showing NTG Lounge location in Mangaluru"
-              className="pointer-events-none absolute inset-0 h-[112%] w-full select-none object-cover [transform:translate3d(0,-5%,0)_scale(1.03)] [filter:invert(1)_hue-rotate(180deg)] md:[filter:invert(1)_hue-rotate(180deg)_brightness(0.92)_contrast(1.1)_saturate(1.4)] z-0"
-              loading="eager"
-              decoding="async"
-            />
+            <a
+              href={mapsSearchUrl(`${brand.name}, ${brand.address}, Mangaluru`)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute inset-0 block cursor-pointer z-0"
+            >
+              <img
+                src="/images/lounge-map@2x.png"
+                srcSet="/images/lounge-map@2x.png 2x, /images/lounge-map.png 1x"
+                alt="Map showing NTG Lounge location in Mangaluru"
+                className="pointer-events-none absolute inset-0 h-[112%] w-full select-none object-cover [transform:translate3d(0,-5%,0)_scale(1.03)] [filter:invert(1)_hue-rotate(180deg)] md:[filter:invert(1)_hue-rotate(180deg)_brightness(0.92)_contrast(1.1)_saturate(1.4)]"
+                loading="eager"
+                decoding="async"
+              />
 
-            {/* One combined atmosphere overlay — was three separate gradients */}
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_75%_10%,rgba(124,58,237,0.28),transparent_55%),radial-gradient(ellipse_at_10%_95%,rgba(34,211,238,0.22),transparent_55%),radial-gradient(circle_at_50%_50%,transparent_45%,rgba(6,10,20,0.78)_100%)] z-10" />
+              {/* One combined atmosphere overlay — was three separate gradients */}
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_75%_10%,rgba(124,58,237,0.28),transparent_55%),radial-gradient(ellipse_at_10%_95%,rgba(34,211,238,0.22),transparent_55%),radial-gradient(circle_at_50%_50%,transparent_45%,rgba(6,10,20,0.78)_100%)]" />
 
-            {/* Grid — desktop only (most expensive overlay on mobile) */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 hidden opacity-[0.08] md:block [background:linear-gradient(rgba(94,234,212,0.45)_1px,transparent_1px),linear-gradient(90deg,rgba(94,234,212,0.45)_1px,transparent_1px)] [background-size:48px_48px] z-10"
-            />
+              {/* Grid — desktop only (most expensive overlay on mobile) */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 hidden opacity-[0.08] md:block [background:linear-gradient(rgba(94,234,212,0.45)_1px,transparent_1px),linear-gradient(90deg,rgba(94,234,212,0.45)_1px,transparent_1px)] [background-size:48px_48px]"
+              />
+            </a>
 
             {/* HUD corner brackets */}
             <span aria-hidden className="pointer-events-none absolute left-3 top-3 h-6 w-6 border-l-2 border-t-2 border-[var(--color-brand)]/65 z-20" />
@@ -165,7 +172,7 @@ export default function VisitLounge() {
             </div>
 
             {/* Top-left pill */}
-            <div className="pointer-events-none absolute left-4 top-4 inline-flex items-center rounded-full border border-[var(--color-brand)]/40 bg-[#0a1020]/95 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.28em] text-[var(--color-brand)] md:bg-[#0a1020]/85 md:shadow-[0_0_14px_rgba(94,234,212,0.2)] md:backdrop-blur z-30">
+            <div className="pointer-events-none absolute left-5 top-5 inline-flex items-center rounded-full border border-[var(--color-brand)]/40 bg-[#0a1020]/95 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.28em] text-[var(--color-brand)] md:bg-[#0a1020]/85 md:shadow-[0_0_14px_rgba(94,234,212,0.2)] md:backdrop-blur z-30">
               <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-brand)] md:shadow-[0_0_6px_rgba(94,234,212,0.95)]" />
               Mangaluru
             </div>
@@ -174,7 +181,7 @@ export default function VisitLounge() {
               href={mapsSearchUrl(`${brand.name}, ${brand.address}, Mangaluru`)}
               target="_blank"
               rel="noopener noreferrer"
-              className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full border border-[var(--color-brand)]/35 bg-[#0a1020]/95 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.22em] text-white/95 transition-colors hover:border-[var(--color-brand)]/65 hover:text-[var(--color-brand)] md:bg-[#0a1020]/80 md:shadow-[0_0_16px_rgba(94,234,212,0.15)] md:backdrop-blur z-30"
+              className="absolute bottom-5 right-5 inline-flex items-center gap-1.5 rounded-full border border-[var(--color-brand)]/35 bg-[#0a1020]/95 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.22em] text-white/95 transition-colors hover:border-[var(--color-brand)]/65 hover:text-[var(--color-brand)] md:bg-[#0a1020]/80 md:shadow-[0_0_16px_rgba(94,234,212,0.15)] md:backdrop-blur z-30"
             >
               Open in Maps
               <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

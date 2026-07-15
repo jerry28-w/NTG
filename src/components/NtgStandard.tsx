@@ -77,7 +77,7 @@ export default function NtgStandard() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
             transition={{ duration: 0.55, delay: 0.35 }}
-            className="mt-10 max-w-md text-base leading-relaxed text-white/60"
+            className="mt-10 max-w-none text-base leading-relaxed text-white/60"
           >
             Born in the Tulunad heartland of coastal Karnataka.
             NTG is a love letter from{" "}
